@@ -10,11 +10,15 @@ public class aiScan
     {
         Client client = new Client();
 
+        String categoriesString = category.convertEnumToString();
+
         GenerateContentResponse response =
         client.models.generateContent(
             "gemini-2.5-flash",
-            "Give me the history of Papa John's",
+            "You are an expert email classifier. Classify the following email into one single category from this list: [" + categoriesString + "].",
             null);
+
+            System.out.println(response.text());
 
         return category.UNFILTERED;
     }
