@@ -19,6 +19,7 @@ export const useEmails = () => {
   const loading = useState<boolean>('emailsLoading', () => false)
   const error = useState<string | null>('emailsError', () => null)
   const selectedTag = useState<string | null>('selectedTag', () => null)
+  const selectedEmail = useState<Email | null>('selectedEmail', () => null)
 
   const fetchEmails = async () => {
     loading.value = true
@@ -58,7 +59,7 @@ export const useEmails = () => {
         subject: 'Welcome to CrazyMail',
         from: 'system@crazymail.com',
         to: 'user@example.com',
-        body: 'Welcome to CrazyMail! Start creating emails and organizing them with tags.',
+        body: 'Welcome to CrazyMail! Start creating emails and organizing them with tags. How long will this go until it cant be displayed in the email card?',
         date: new Date().toISOString(),
         tags: ['welcome', 'system'],
         read: false
@@ -87,24 +88,48 @@ export const useEmails = () => {
   }
 
   const filteredEmails = computed(() => {
+    if (!emails.value) {
+      return []
+    }
     if (!selectedTag.value) {
       return emails.value
     }
     return emails.value.filter(email => 
-      email.tags.some(tag => tag.toLowerCase() === selectedTag.value?.toLowerCase())
+      email?.tags?.some(tag => tag.toLowerCase() === selectedTag.value?.toLowerCase())
     )
   })
 
   const allTags = computed(() => {
     const tagSet = new Set<string>()
-    emails.value.forEach(email => {
-      email.tags.forEach(tag => tagSet.add(tag))
-    })
+    if (emails.value) {
+      emails.value.forEach(email => {
+        if (email?.tags) {
+          email.tags.forEach(tag => tagSet.add(tag))
+        }
+      })
+    }
     return Array.from(tagSet).sort()
   })
 
   const setSelectedTag = (tag: string | null) => {
     selectedTag.value = tag
+  }
+
+  const setSelectedEmail = (email: Email | null) => {
+    selectedEmail.value = email
+    // Mark email as read when selected
+    if (email && !email.read) {
+      const emailIndex = emails.value.findIndex(e => e.id === email.id)
+      if (emailIndex !== -1) {
+        const existingEmail = emails.value[emailIndex]
+        if (existingEmail) {
+          emails.value[emailIndex] = {
+            ...existingEmail,
+            read: true
+          }
+        }
+      }
+    }
   }
 
   return {
@@ -114,7 +139,9 @@ export const useEmails = () => {
     filteredEmails,
     allTags,
     selectedTag: readonly(selectedTag),
+    selectedEmail: readonly(selectedEmail),
     fetchEmails,
-    setSelectedTag
+    setSelectedTag,
+    setSelectedEmail
   }
 }
