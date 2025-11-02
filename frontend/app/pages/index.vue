@@ -183,6 +183,7 @@ const createEmail = () => {
 </script>
 
 <template>
+  <div id="app">
   <div class="inbox-container">
     <header class="inbox-header">
       <div class="header-content">
@@ -319,6 +320,7 @@ const createEmail = () => {
         </div>
       </div>
     </div>
+  </div>
   </div>
 </template>
 
