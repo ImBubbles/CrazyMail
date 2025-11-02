@@ -8,7 +8,7 @@ public enum category
         //Placeholder category
         UNFILTERED,
         //Added Categories
-        SPAM, PHISHING, SCHOOL, WORK, SCHOLARSHIPS, FOOD, FINANCES, PROMOTIONS, PERSONAL,
+        //SPAM, PHISHING, SCHOOL, WORK, SCHOLARSHIPS, FOOD, FINANCES, PROMOTIONS, PERSONAL,
         //Preexisting categories
         GUIDE, NEWSLETTER, SUPPORT, SYSTEM, WELCOME;
 
