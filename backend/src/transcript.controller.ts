@@ -14,6 +14,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   Req,
+  Body,
 } from '@nestjs/common';
 import * as express from 'express';
 
@@ -146,6 +147,97 @@ export class TranscriptController {
       console.error('Error calling Cloudflare API:', error);
       throw new InternalServerErrorException(
         'Failed to transcribe audio: ' + (error as Error).message,
+      );
+    }
+  }
+
+  @Post('rewrite')
+  async rewriteText(
+    @Body() body: { text: string; style: 'formal' | 'polite' },
+  ): Promise<{ text: string }> {
+    const { text, style } = body;
+
+    if (!text || !text.trim()) {
+      throw new BadRequestException('Text is required');
+    }
+
+    if (!style || (style !== 'formal' && style !== 'polite')) {
+      throw new BadRequestException('Style must be either "formal" or "polite"');
+    }
+
+    const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN;
+    if (!cloudflareApiToken) {
+      throw new InternalServerErrorException(
+        'Cloudflare API token not configured. Please set CLOUDFLARE_API_TOKEN environment variable.',
+      );
+    }
+
+    const cloudflareAccountId =
+      process.env.CLOUDFLARE_ACCOUNT_ID ||
+      '023e105f4ecef8ad9ca31a8372d0c353';
+
+    // Use Cloudflare's LLM model for text rewriting
+    const url = `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
+
+    const prompt =
+      style === 'formal'
+        ? `Rewrite the following email body text to be more formal and professional. Maintain the original meaning and key information. Return ONLY the rewritten email body text - do not include a subject line or any other metadata:\n\n${text}`
+        : `Rewrite the following email body text to be more polite and courteous. Maintain the original meaning and key information. Return ONLY the rewritten email body text - do not include a subject line or any other metadata:\n\n${text}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cloudflareApiToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Cloudflare API error:', response.status, response.statusText);
+        console.error('Cloudflare error response:', errorText);
+        throw new InternalServerErrorException(
+          `Cloudflare API error: ${response.status} ${response.statusText}. Details: ${errorText}`,
+        );
+      }
+
+      const result: any = await response.json();
+
+      // Cloudflare LLM response format - typically returns { response: string } or { result: { response: string } }
+      // For Workers AI REST API, response is usually in result.response
+      let rewrittenText: string;
+      if (result.result?.response) {
+        rewrittenText = result.result.response;
+      } else if (result.response) {
+        rewrittenText = result.response;
+      } else if (result.result && typeof result.result === 'string') {
+        rewrittenText = result.result;
+      } else if (typeof result === 'string') {
+        rewrittenText = result;
+      } else if (result.text) {
+        rewrittenText = result.text;
+      } else {
+        console.error('Unexpected response format:', JSON.stringify(result, null, 2));
+        throw new InternalServerErrorException(
+          `Unexpected response format from Cloudflare API. Response: ${JSON.stringify(result)}`,
+        );
+      }
+
+      return { text: rewrittenText.trim() };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+      console.error('Error calling Cloudflare API:', error);
+      throw new InternalServerErrorException(
+        'Failed to rewrite text: ' + (error as Error).message,
       );
     }
   }

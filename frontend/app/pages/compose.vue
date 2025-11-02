@@ -19,6 +19,8 @@ const body = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
 const success = ref(false)
+const rewriting = ref(false)
+const rewriteStyle = ref<'formal' | 'polite' | null>(null)
 
 // Redirect to login if no credentials
 onMounted(() => {
@@ -158,6 +160,45 @@ watch(recordedText, (newText, oldText) => {
     console.log("Skipping append - newText is empty or whitespace:", newText);
   }
 }, { immediate: false })
+
+const rewriteText = async (style: 'formal' | 'polite') => {
+  if (!body.value.trim()) {
+    error.value = 'Please enter some text in the message body first'
+    return
+  }
+
+  rewriting.value = true
+  rewriteStyle.value = style
+  error.value = null
+
+  try {
+    const config = useRuntimeConfig()
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
+    
+    const response = await $fetch<{ text: string }>(`${baseURL}/api/rewrite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: {
+        text: body.value.trim(),
+        style: style,
+      },
+    })
+
+    if (response && response.text) {
+      body.value = response.text
+    } else {
+      throw new Error('Invalid response from server')
+    }
+  } catch (err: any) {
+    console.error('Error rewriting text:', err)
+    error.value = err?.message || err?.data?.message || `Failed to rewrite text as ${style}. Please try again.`
+  } finally {
+    rewriting.value = false
+    rewriteStyle.value = null
+  }
+}
 </script>
 
 <template>
@@ -226,21 +267,23 @@ watch(recordedText, (newText, oldText) => {
         <div class="form-group">
           <div class="label-row">
             <label for="body" class="label">Message</label>
-            <button
-              type="button"
-              @click="toggleRecording"
-              class="record-button"
-              :class="{ 'recording': recording, 'disabled': microphoneDisabled }"
-              :disabled="loading || recordingLoading || microphoneDisabled"
-              :aria-label="recording ? 'Stop recording' : 'Start recording'"
-            >
-              <span class="record-icon" :class="{ 'recording': recording }">
-                🎤
-              </span>
-              <span v-if="recording">Stop Recording</span>
-              <span v-else-if="recordingLoading">Processing...</span>
-              <span v-else>Record Voice</span>
-            </button>
+            <div class="action-buttons">
+              <button
+                type="button"
+                @click="toggleRecording"
+                class="record-button"
+                :class="{ 'recording': recording, 'disabled': microphoneDisabled }"
+                :disabled="loading || recordingLoading || microphoneDisabled || rewriting"
+                :aria-label="recording ? 'Stop recording' : 'Start recording'"
+              >
+                <span class="record-icon" :class="{ 'recording': recording }">
+                  🎤
+                </span>
+                <span v-if="recording">Stop Recording</span>
+                <span v-else-if="recordingLoading">Processing...</span>
+                <span v-else>Record Voice</span>
+              </button>
+            </div>
           </div>
           <textarea
             id="body"
@@ -248,9 +291,37 @@ watch(recordedText, (newText, oldText) => {
             class="textarea"
             placeholder="Write your message here..."
             rows="12"
-            :disabled="loading"
+            :disabled="loading || rewriting"
             required
           ></textarea>
+          <div class="rewrite-buttons">
+            <button
+              type="button"
+              @click="rewriteText('formal')"
+              class="rewrite-button rewrite-formal"
+              :disabled="loading || rewriting || !body.trim()"
+              :class="{ 'rewriting': rewriting && rewriteStyle === 'formal' }"
+            >
+              <span v-if="rewriting && rewriteStyle === 'formal'" class="button-content">
+                <span class="spinner-small"></span>
+                Making Formal...
+              </span>
+              <span v-else class="button-content">📝 Make Formal</span>
+            </button>
+            <button
+              type="button"
+              @click="rewriteText('polite')"
+              class="rewrite-button rewrite-polite"
+              :disabled="loading || rewriting || !body.trim()"
+              :class="{ 'rewriting': rewriting && rewriteStyle === 'polite' }"
+            >
+              <span v-if="rewriting && rewriteStyle === 'polite'" class="button-content">
+                <span class="spinner-small"></span>
+                Making Polite...
+              </span>
+              <span v-else class="button-content">✨ Make Polite</span>
+            </button>
+          </div>
           <div v-if="recording" class="recording-indicator">
             <span class="recording-dot"></span>
             Recording in progress...
@@ -463,6 +534,67 @@ watch(recordedText, (newText, oldText) => {
   background: #c53030;
   border-radius: 50%;
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rewrite-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.rewrite-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: white;
+  color: #4a5568;
+  border: 2px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.rewrite-button:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #a0aec0;
+  transform: translateY(-1px);
+}
+
+.rewrite-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.rewrite-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.rewrite-button.rewriting {
+  background: #edf2f7;
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.rewrite-button.rewrite-formal:hover:not(:disabled) {
+  border-color: #4299e1;
+  color: #2b6cb0;
+}
+
+.rewrite-button.rewrite-polite:hover:not(:disabled) {
+  border-color: #48bb78;
+  color: #2f855a;
 }
 
 @keyframes pulse {

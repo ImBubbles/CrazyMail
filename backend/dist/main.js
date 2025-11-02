@@ -58,6 +58,7 @@ async function bootstrap() {
     console.log('Available routes:');
     console.log('  GET  /');
     console.log('  POST /api/transcript');
+    console.log('  POST /api/rewrite');
     await app.listen(port);
 }
 bootstrap();
