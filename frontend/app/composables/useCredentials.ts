@@ -15,7 +15,7 @@ export const useCredentials = () => {
   const saveCredentials = async (username: string, password: string) => {
     try {
       const config = useRuntimeConfig()
-      const baseURL = config.public.apiBase || 'http://localhost:3000'
+      const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
       
       // Send account creation request to backend
       try {

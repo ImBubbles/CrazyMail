@@ -29,7 +29,7 @@ export const useEmails = () => {
     
     try {
       const config = useRuntimeConfig()
-      const baseURL = config.public.apiBase || 'http://localhost:3000'
+      const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
       
       // Try to fetch from backend with timeout
       try {

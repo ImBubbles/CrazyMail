@@ -5,7 +5,11 @@ import { useCredentials } from '../composables/useCredentials'
 import useRecorder from "../composables/sttRecorder";
 const router = useRouter()
 const { getCredentials, hasCredentials } = useCredentials()
-const { startRecording, stopRecording, recording, loading: recordingLoading, recordedText, microphoneDisabled } = useRecorder()
+
+// Get API base URL from runtime config (backend runs on 3001, frontend on 3000)
+const config = useRuntimeConfig()
+const apiBaseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
+const { startRecording, stopRecording, recording, loading: recordingLoading, recordedText, microphoneDisabled } = useRecorder(apiBaseURL)
 
 const subject = ref('')
 const to = ref('')
@@ -75,7 +79,7 @@ const sendMail = async () => {
 
   try {
     const config = useRuntimeConfig()
-    const baseURL = config.public.apiBase || 'http://localhost:3000'
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
     const credentials = getCredentials()
     
     // Parse CC and BCC into arrays
@@ -136,15 +140,24 @@ const toggleRecording = () => {
   }
 }
 
-// Watch for recorded text and append to body
-watch(recordedText, (newText) => {
+// Watch for recorded text and append to body when transcription completes
+watch(recordedText, (newText, oldText) => {
+  console.log("watch triggered - recordedText changed:", { oldText, newText });
   if (newText && newText.trim()) {
-    // Append to body with a space if body already has content
-    body.value = body.value.trim() 
-      ? `${body.value}\n\n${newText}` 
-      : newText
+    console.log("Appending text to body. Current body:", body.value);
+    // Append to body with proper spacing if body already has content
+    if (body.value.trim()) {
+      // Add new transcribed text with blank line separator
+      body.value = `${body.value}\n\n${newText.trim()}`;
+    } else {
+      // If body is empty, just set the transcribed text
+      body.value = newText.trim();
+    }
+    console.log("Body after append:", body.value);
+  } else {
+    console.log("Skipping append - newText is empty or whitespace:", newText);
   }
-})
+}, { immediate: false })
 </script>
 
 <template>
