@@ -2,6 +2,7 @@ package scan;
 
 import com.google.genai.Client;
 import com.google.genai.types.GenerateContentResponse;
+
 //Receives the basic scan results and uses them to tell AI what to check the email for.
 public class aiScan
 {
@@ -11,11 +12,11 @@ public class aiScan
         Email Sender: %s.
         Email Content: %s.
         Respond with only the category name, exactly as it appears in the list.
-        """; // Use three double quotes at the start and end
+        """;
 
-public static void main(String[] args) {
-    // Call your main classification logic with test values
-    category result = main("test@sender.com", "This is a test email message.", category.UNFILTERED);
+public static void main(String[] args)
+{
+    category result = main("spam@spam.com", "abcdefghijklmnopqrstuvwxyz", category.UNFILTERED);
     System.out.println("Returned Category: " + result);
 }
 
@@ -25,11 +26,13 @@ public static void main(String[] args) {
         //String temporarySender = "ryan.d.miller@okstate.edu";
         //String temporaryMessage = """""";
 
+        String classificationText = "";
+
         try {
 
         Client client = new Client();
 
-        String categoriesString = category.convertEnumToString();
+        String categoriesString = category.convertEnumToString(category.UNFILTERED, category.SPAM, category.PHISHING);
 
         String prompt = String.format(
         CLASSIFICATION_PROMPT_TEMPLATE,
@@ -48,13 +51,19 @@ public static void main(String[] args) {
             String output = response.text();
             System.out.println(output);
 
-        } catch (Exception e) {
-            // 3. THIS IS CRUCIAL: It prints the hidden error
-            System.err.println("FATAL ERROR: Gemini API call failed or client initialization error.");
-            e.printStackTrace(); // Print the detailed stack trace to find the root cause
-            return category.GEMINIFAIL;
-        }
+            classificationText = response.text();
+            return category.valueOf(classificationText.toUpperCase());
 
-        return category.UNFILTERED;
+        } catch (IllegalArgumentException e) {
+            // This catches the specific error if AI returns a string that is NOT a valid enum constant.
+            System.err.println("Classification Error: AI returned unparseable category: " + classificationText);
+            // Return a specific error code, or the UNFILTERED default.
+            return category.UNFILTERED;
+        } catch (Exception e) {
+            // Catch all other errors (API, network, etc.)
+            System.err.println("FATAL ERROR: Gemini API call failed or client initialization error.");
+            e.printStackTrace(); 
+            return category.UNFILTERED;
+        }
     }
 }

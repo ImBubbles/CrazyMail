@@ -126,7 +126,8 @@ public class loadScan
     }
     
     // Helper method to extract subject from email message
-    private static String extractSubject(String sender, String message) {
+    private static String extractSubject(String sender, String message)
+    {
         // Try to extract subject from message if it contains email headers
         if (message != null && message.contains("Subject:")) {
             int subjectStart = message.indexOf("Subject:");
