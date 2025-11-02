@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCredentials } from '../composables/useCredentials'
-
+import useRecorder from "../composables/sttRecorder";
 const router = useRouter()
 const { getCredentials, hasCredentials } = useCredentials()
+const { startRecording, stopRecording, recording, loading: recordingLoading, recordedText, microphoneDisabled } = useRecorder()
 
 const subject = ref('')
 const to = ref('')
@@ -126,6 +127,24 @@ const sendMail = async () => {
 const goBack = () => {
   router.push('/')
 }
+
+const toggleRecording = () => {
+  if (recording.value) {
+    stopRecording()
+  } else {
+    startRecording()
+  }
+}
+
+// Watch for recorded text and append to body
+watch(recordedText, (newText) => {
+  if (newText && newText.trim()) {
+    // Append to body with a space if body already has content
+    body.value = body.value.trim() 
+      ? `${body.value}\n\n${newText}` 
+      : newText
+  }
+})
 </script>
 
 <template>
@@ -192,7 +211,24 @@ const goBack = () => {
         </div>
 
         <div class="form-group">
-          <label for="body" class="label">Message</label>
+          <div class="label-row">
+            <label for="body" class="label">Message</label>
+            <button
+              type="button"
+              @click="toggleRecording"
+              class="record-button"
+              :class="{ 'recording': recording, 'disabled': microphoneDisabled }"
+              :disabled="loading || recordingLoading || microphoneDisabled"
+              :aria-label="recording ? 'Stop recording' : 'Start recording'"
+            >
+              <span class="record-icon" :class="{ 'recording': recording }">
+                🎤
+              </span>
+              <span v-if="recording">Stop Recording</span>
+              <span v-else-if="recordingLoading">Processing...</span>
+              <span v-else>Record Voice</span>
+            </button>
+          </div>
           <textarea
             id="body"
             v-model="body"
@@ -202,6 +238,10 @@ const goBack = () => {
             :disabled="loading"
             required
           ></textarea>
+          <div v-if="recording" class="recording-indicator">
+            <span class="recording-dot"></span>
+            Recording in progress...
+          </div>
         </div>
 
         <div v-if="error" class="error-message">
@@ -328,6 +368,106 @@ const goBack = () => {
   font-size: 0.75rem;
   color: #718096;
   margin-top: 0.25rem;
+}
+
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.record-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.record-button:hover:not(:disabled) {
+  background: #f7f9ff;
+  border-color: #5568d3;
+}
+
+.record-button.recording {
+  background: #fee;
+  color: #c53030;
+  border-color: #c53030;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.record-button.recording:hover:not(:disabled) {
+  background: #fed7d7;
+  border-color: #b91c1c;
+}
+
+.record-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.record-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.record-icon {
+  font-size: 1rem;
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.record-icon.recording {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #fee;
+  border: 1px solid #fc8181;
+  border-radius: 6px;
+  color: #c53030;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.recording-dot {
+  width: 8px;
+  height: 8px;
+  background: #c53030;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
 .input,

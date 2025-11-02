@@ -1,84 +1,107 @@
-import { onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, ref, type Ref } from "vue";
 
+/**
+ * Composable for handling speech-to-text audio recording.
+ * Uses the browser's MediaRecorder API to capture audio and sends it to the backend for transcription.
+ */
 export default function useRecorder() {
-  // Private API
-  const stream = ref<MediaStream | null>(null);
-  const recorder = ref<MediaRecorder | null>(null);
+  // Internal state for managing media stream and recorder
+  const audioStream: Ref<MediaStream | null> = ref(null);
+  const mediaRecorder: Ref<MediaRecorder | null> = ref(null);
 
-  // Public API
-  const microphoneDisabled = ref<boolean>(false);
-  const recording = ref<boolean>(false);
-  const loading = ref<boolean>(false);
-  const recordedText = ref<string>("");
+  // Public reactive state
+  const microphoneDisabled = ref(false);
+  const recording = ref(false);
+  const loading = ref(false);
+  const recordedText = ref("");
 
-  const stopRecording = async () => {
+  /**
+   * Stops the current recording session and cleans up resources
+   */
+  const stopRecording = async (): Promise<void> => {
     recording.value = false;
-    recorder.value?.stop?.();
 
-    const tracks = stream?.value?.getTracks() ?? [];
-    for (const track of tracks) {
-      track.stop();
+    // Stop the media recorder if it exists
+    if (mediaRecorder.value) {
+      mediaRecorder.value.stop();
     }
 
-    recorder.value = null;
-    stream.value = null;
+    // Stop all audio tracks to release microphone access
+    if (audioStream.value) {
+      audioStream.value.getTracks().forEach((track) => {
+        track.stop();
+      });
+    }
+
+    // Clean up references
+    mediaRecorder.value = null;
+    audioStream.value = null;
   };
 
-  const startRecording = async () => {
+  /**
+   * Starts a new audio recording session
+   */
+  const startRecording = async (): Promise<void> => {
     microphoneDisabled.value = false;
 
     try {
-      stream.value = await navigator.mediaDevices.getUserMedia({
+      // Request microphone access
+      audioStream.value = await navigator.mediaDevices.getUserMedia({
         audio: true,
       });
 
       recording.value = true;
 
-      let chunks: BlobPart[] = [];
-      recorder.value = new MediaRecorder(stream.value, {
+      // Initialize MediaRecorder with audio stream
+      const audioChunks: Blob[] = [];
+      mediaRecorder.value = new MediaRecorder(audioStream.value, {
         mimeType: "audio/webm",
       });
 
-      recorder.value.addEventListener("dataavailable", function (e) {
-        chunks.push(e.data);
+      // Collect audio data chunks as they become available
+      mediaRecorder.value.addEventListener("dataavailable", (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
       });
 
-      recorder.value.addEventListener("stop", function () {
-        const blob = new Blob(chunks, { type: "audio/webm" });
+      // Handle recording completion and send to transcription API
+      mediaRecorder.value.addEventListener("stop", async () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
 
         loading.value = true;
-        fetch("/api/voice", {
-          method: "POST",
-          body: blob,
-        })
-          .then(async (response) => {
-            if (response.status !== 200 || !response.body) {
-              return;
-            }
-
-            const { text } = (await response.json()) as {
-              text: string;
-            };
-            if (!text) {
-              return;
-            }
-
-            recordedText.value = text;
-          })
-          .finally(function () {
-            loading.value = false;
+        try {
+          const response = await fetch("/api/voice", {
+            method: "POST",
+            body: audioBlob,
           });
+
+          if (response.ok && response.body) {
+            const result = await response.json();
+            if (result?.text) {
+              recordedText.value = result.text;
+            }
+          }
+        } catch (error) {
+          console.error("Error sending audio for transcription:", error);
+        } finally {
+          loading.value = false;
+        }
       });
 
-      recorder.value.start();
-    } catch (e) {
-      console.error("Encountered error while requesting audio", e);
+      // Start recording
+      mediaRecorder.value.start();
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
       microphoneDisabled.value = true;
-      stopRecording();
+      await stopRecording();
     }
   };
 
-  onBeforeUnmount(stopRecording);
+  // Clean up on component unmount
+  onBeforeUnmount(() => {
+    stopRecording();
+  });
 
   return {
     microphoneDisabled,
