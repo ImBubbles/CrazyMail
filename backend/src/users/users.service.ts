@@ -8,13 +8,11 @@ export class UsersService {
 
   create(createUserDto: CreateUserDto) {
     this.logger.log('[POST] /users Request received for username: ${createUserDto.username}');
-    this.logger.log('[POST] /users Request received for email: ${createUserDto.email}');
     this.logger.debug('Received Full Payload: ', createUserDto);
 
     return{
       message: 'User registered successfully.',
       status: 'success_mock',
-      receivedEmail: createUserDto.email,
     };
   }
 
