@@ -1,3 +1,7 @@
+/// <reference types="../../.nuxt/nuxt.d.ts" />
+import { computed } from 'vue'
+import { useState } from '#app'
+
 /**
  * Composable to manage account credentials
  * Can be used across the application and for backend API calls

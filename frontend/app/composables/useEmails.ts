@@ -1,4 +1,3 @@
-/// <reference types="../.nuxt/nuxt.d.ts" />
 import { readonly, computed } from 'vue'
 
 /**
@@ -21,10 +20,10 @@ export const useEmails = () => {
   const error = useState<string | null>('emailsError', () => null)
   const selectedTag = useState<string | null>('selectedTag', () => null)
 
-  const fetchEmails = async (): Promise<void> => {
+  const fetchEmails = async () => {
     loading.value = true
     error.value = null
-
+    
     try {
       // TODO: Replace with actual backend API endpoint
       // For now, using mock data
