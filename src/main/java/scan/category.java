@@ -1,4 +1,4 @@
-package scripts;
+package scan;
 
 public enum category
     {
