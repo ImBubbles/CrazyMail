@@ -17,7 +17,7 @@ const saveCredentials = async () => {
     return
   }
 
-  saveCreds(username.value, password.value)
+  await saveCreds(username.value, password.value)
   
   // Navigate to homepage after saving credentials
   await router.push('/')
