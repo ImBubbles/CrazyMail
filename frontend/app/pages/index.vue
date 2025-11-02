@@ -28,14 +28,20 @@ const {
 // Use import.meta.env for Vite-based projects (client-side env vars)
 // Ensure you assign the correct env var in your Vite config (e.g., VITE_ELEVENLABS_API_KEY)
 const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
-if (!ELEVENLABS_API_KEY) {
-  throw new Error('Missing VITE_ELEVENLABS_API_KEY in environment variables');
+
+// Initialize ElevenLabs client only if API key is available
+let elevenlabs: ElevenLabsClient | null = null;
+if (ELEVENLABS_API_KEY) {
+  elevenlabs = new ElevenLabsClient({
+    apiKey: ELEVENLABS_API_KEY,
+  });
 }
-const elevenlabs = new ElevenLabsClient({
-  apiKey: ELEVENLABS_API_KEY,
-});
 
 const createAudioStreamFromText = async (text: string): Promise<Uint8Array> => {
+  if (!elevenlabs) {
+    throw new Error('ElevenLabs API key is not configured. Please set VITE_ELEVENLABS_API_KEY in your environment variables.');
+  }
+  
   const audioStream = await elevenlabs.textToSpeech.stream('JBFqnCBsd6RMkjVDRZzb', {
     modelId: 'eleven_multilingual_v2',
     text,
@@ -71,6 +77,12 @@ const createAudioStreamFromText = async (text: string): Promise<Uint8Array> => {
 
 const playEmailAudio = async () => {
   if (!selectedEmail.value) return;
+
+  // Check if API key is configured
+  if (!ELEVENLABS_API_KEY || !elevenlabs) {
+    alert('Audio playback is not available. Please configure VITE_ELEVENLABS_API_KEY in your environment variables.');
+    return;
+  }
 
   // If audio is paused, resume it
   if (currentAudio && !isPlayingAudio.value) {
@@ -391,10 +403,11 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
           <div class="header-actions">
             <button 
               @click="handleAudioButtonClick()"
-              :disabled="isGeneratingAudio"
+              :disabled="isGeneratingAudio || !ELEVENLABS_API_KEY"
               class="audio-button"
               :class="{ playing: isPlayingAudio, loading: isGeneratingAudio }"
-              aria-label="Play/Pause email audio"
+              :aria-label="ELEVENLABS_API_KEY ? 'Play/Pause email audio' : 'Audio unavailable - API key not configured'"
+              :title="!ELEVENLABS_API_KEY ? 'Audio playback requires VITE_ELEVENLABS_API_KEY to be configured' : ''"
             >
               <span v-if="isGeneratingAudio" class="audio-icon">⏳</span>
               <span v-else-if="isPlayingAudio" class="audio-icon">⏸</span>
