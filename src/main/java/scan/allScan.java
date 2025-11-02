@@ -9,7 +9,7 @@ public class allScan {
         category type = basicScan.main(sender, message);
         
         //AI Scan (currently just gives UNFILTERED)
-        aiScan.main(sender, message, category.SPAM);
+        type = aiScan.main(sender, message, type);
 
         //Return
         return type;
