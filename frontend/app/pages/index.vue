@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useCredentials } from '../composables/useCredentials'
 import { useEmails } from '../composables/useEmails'
-import { watch, onMounted, ref } from 'vue'
+import { watch, onMounted, ref, computed } from 'vue'
 const { hasCredentials } = useCredentials()
 import { useRouter } from 'vue-router'
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
@@ -19,6 +19,7 @@ const {
   selectedEmail,
   loading, 
   error,
+  emails,
   fetchEmails, 
   setSelectedTag,
   setSelectedEmail
@@ -188,6 +189,70 @@ const createEmail = () => {
   // TODO: Navigate to create email page or open modal
   router.push('/compose')
 }
+
+// Heatmap data computation
+const heatmapData = computed(() => {
+  // Initialize 24x7 grid (24 hours, 7 days)
+  const grid: number[][] = Array(24).fill(null).map(() => Array(7).fill(0))
+  
+  if (!emails.value || emails.value.length === 0) {
+    return grid
+  }
+  
+  // Count emails per hour/day combination
+  emails.value.forEach(email => {
+    try {
+      const date = new Date(email.date)
+      const dayOfWeek = date.getDay() // 0 = Sunday, 6 = Saturday
+      const hour = date.getHours() // 0-23
+      
+      if (hour >= 0 && hour < 24 && dayOfWeek >= 0 && dayOfWeek < 7) {
+        const row = grid[hour]
+        if (row) {
+          row[dayOfWeek] = (row[dayOfWeek] || 0) + 1
+        }
+      }
+    } catch (e) {
+      console.warn('Error parsing email date:', email.date, e)
+    }
+  })
+  
+  return grid
+})
+
+// Get max count for normalization
+const maxCount = computed(() => {
+  if (!heatmapData.value) return 1
+  let max = 0
+  for (let hour = 0; hour < 24; hour++) {
+    const row = heatmapData.value[hour]
+    if (row) {
+      for (let day = 0; day < 7; day++) {
+        const count = row[day] || 0
+        max = Math.max(max, count)
+      }
+    }
+  }
+  return max || 1
+})
+
+// Get color intensity based on count
+const getCellColor = (count: number) => {
+  if (count === 0) return '#ebedf0' // Light gray for no emails
+  const intensity = count / maxCount.value
+  // Color scale from light blue (low) to dark blue/purple (high)
+  if (intensity < 0.25) return '#c6e48b'
+  if (intensity < 0.5) return '#7bc96f'
+  if (intensity < 0.75) return '#239a3b'
+  return '#196127'
+}
+
+const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const hourLabels = Array.from({ length: 24 }, (_, i) => {
+  const hour = i % 12 || 12
+  const period = i < 12 ? 'AM' : 'PM'
+  return `${hour}${period}`
+})
 </script>
 
 <template>
@@ -231,6 +296,56 @@ const createEmail = () => {
         <p v-if="selectedTag" class="filter-indicator">
           Showing emails tagged: <strong>{{ selectedTag }}</strong>
         </p>
+        
+        <!-- Email Activity Heatmap -->
+        <div class="heatmap-section">
+          <h3 class="heatmap-title">Email Activity</h3>
+          <div class="heatmap-container">
+            <div class="heatmap-grid">
+              <!-- Day labels row -->
+              <div class="heatmap-label-row">
+                <div class="heatmap-corner"></div>
+                <div 
+                  v-for="(day, dayIndex) in dayLabels" 
+                  :key="dayIndex"
+                  class="heatmap-day-label"
+                >
+                  {{ day }}
+                </div>
+              </div>
+              <!-- Hour rows -->
+              <div 
+                v-for="(hour, hourIndex) in hourLabels" 
+                :key="hourIndex"
+                class="heatmap-row"
+              >
+                <div class="heatmap-hour-label">{{ hour }}</div>
+                <div 
+                  v-for="(day, dayIndex) in dayLabels" 
+                  :key="dayIndex"
+                  class="heatmap-cell"
+                  :style="{ backgroundColor: getCellColor(heatmapData[hourIndex]?.[dayIndex] || 0) }"
+                  :title="`${dayLabels[dayIndex]} ${hour}: ${heatmapData[hourIndex]?.[dayIndex] || 0} email${(heatmapData[hourIndex]?.[dayIndex] || 0) !== 1 ? 's' : ''}`"
+                >
+                  <span v-if="(heatmapData[hourIndex]?.[dayIndex] || 0) > 0" class="cell-count">
+                    {{ heatmapData[hourIndex]?.[dayIndex] || 0 }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="heatmap-legend">
+              <span class="legend-label">Less</span>
+              <div class="legend-gradient">
+                <div class="legend-color" style="background-color: #ebedf0;"></div>
+                <div class="legend-color" style="background-color: #c6e48b;"></div>
+                <div class="legend-color" style="background-color: #7bc96f;"></div>
+                <div class="legend-color" style="background-color: #239a3b;"></div>
+                <div class="legend-color" style="background-color: #196127;"></div>
+              </div>
+              <span class="legend-label">More</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Email List -->
@@ -400,6 +515,118 @@ const createEmail = () => {
   display: grid;
   grid-template-columns: 250px 1fr;
   gap: 2rem;
+}
+
+.heatmap-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.heatmap-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 0.75rem 0;
+}
+
+.heatmap-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.heatmap-grid {
+  display: inline-block;
+  width: 100%;
+}
+
+.heatmap-label-row {
+  display: flex;
+  margin-bottom: 0.25rem;
+}
+
+.heatmap-corner {
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.heatmap-day-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #4a5568;
+  padding: 0.125rem;
+  min-width: 0;
+}
+
+.heatmap-row {
+  display: flex;
+  margin-bottom: 1px;
+  align-items: center;
+}
+
+.heatmap-hour-label {
+  width: 28px;
+  flex-shrink: 0;
+  font-size: 0.55rem;
+  color: #718096;
+  text-align: right;
+  padding-right: 0.25rem;
+}
+
+.heatmap-cell {
+  flex: 1;
+  aspect-ratio: 1;
+  min-width: 0;
+  min-height: 16px;
+  margin: 0 1px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.cell-count {
+  font-size: 0.5rem;
+  font-weight: 600;
+  color: #2d3748;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.legend-label {
+  font-size: 0.6rem;
+  color: #718096;
+}
+
+.legend-gradient {
+  display: flex;
+  gap: 1px;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
 }
 
 .tags-section {

@@ -158,30 +158,5 @@ public class loadScan
         // Otherwise, assume the entire message is the body
         return message != null ? message : "";
     }
-    public EmailClassification classifyEmail(String emailText, int attachmentCount) {
     
-    // 1. Calculate Simple Metrics (using an internal utility)
-    ReadabilityMetrics metrics = ReadabilityUtility.calculate(emailText);
-    
-    // 2. Build the LLM Prompt (incorporating metrics)
-    String prompt = PromptBuilder.buildCognitiveLoadPrompt(
-        emailText, 
-        metrics.getFleschKincaid(), 
-        metrics.getLexicalDiversity(), 
-        attachmentCount
-    );
-    
-    // 3. Call the external AI Service (Gemini/other LLM)
-    String jsonResponse = sendRequestToGemini(prompt);
-    
-    // 4. Deserialize the response (Expecting a JSON with CLS)
-    ClassificationResult result = JsonParser.parse(jsonResponse);
-    
-    // 5. Map to your application's internal object
-    EmailClassification classification = new EmailClassification();
-    classification.setCategory(result.getCategory()); 
-    classification.setCognitiveLoadScore(result.getCLS_Score()); // <-- NEW FIELD
-    
-    return classification;
-}
 }
