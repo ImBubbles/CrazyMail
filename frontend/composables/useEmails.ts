@@ -31,7 +31,7 @@ export const useEmails = () => {
       // TODO: Replace with actual backend API endpoint
       // For now, using mock data
       const config = useRuntimeConfig()
-      const baseURL = config.public.apiBase || 'http://localhost:3000'
+      const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
       
       // Try to fetch from backend, fallback to mock data if unavailable
       try {

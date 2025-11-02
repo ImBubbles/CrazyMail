@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCredentials } from '../composables/useCredentials'
-
+import useRecorder from "../composables/sttRecorder";
 const router = useRouter()
 const { getCredentials, hasCredentials } = useCredentials()
+
+// Get API base URL from runtime config (backend runs on 3001, frontend on 3000)
+const config = useRuntimeConfig()
+const apiBaseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
+const { startRecording, stopRecording, recording, loading: recordingLoading, recordedText, microphoneDisabled } = useRecorder(apiBaseURL)
 
 const subject = ref('')
 const to = ref('')
@@ -14,6 +19,8 @@ const body = ref('')
 const loading = ref(false)
 const error = ref<string | null>(null)
 const success = ref(false)
+const rewriting = ref(false)
+const rewriteStyle = ref<'formal' | 'polite' | null>(null)
 
 // Redirect to login if no credentials
 onMounted(() => {
@@ -74,7 +81,7 @@ const sendMail = async () => {
 
   try {
     const config = useRuntimeConfig()
-    const baseURL = config.public.apiBase || 'http://localhost:3000'
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
     const credentials = getCredentials()
     
     // Parse CC and BCC into arrays
@@ -125,6 +132,72 @@ const sendMail = async () => {
 
 const goBack = () => {
   router.push('/')
+}
+
+const toggleRecording = () => {
+  if (recording.value) {
+    stopRecording()
+  } else {
+    startRecording()
+  }
+}
+
+// Watch for recorded text and append to body when transcription completes
+watch(recordedText, (newText, oldText) => {
+  console.log("watch triggered - recordedText changed:", { oldText, newText });
+  if (newText && newText.trim()) {
+    console.log("Appending text to body. Current body:", body.value);
+    // Append to body with proper spacing if body already has content
+    if (body.value.trim()) {
+      // Add new transcribed text with blank line separator
+      body.value = `${body.value}\n\n${newText.trim()}`;
+    } else {
+      // If body is empty, just set the transcribed text
+      body.value = newText.trim();
+    }
+    console.log("Body after append:", body.value);
+  } else {
+    console.log("Skipping append - newText is empty or whitespace:", newText);
+  }
+}, { immediate: false })
+
+const rewriteText = async (style: 'formal' | 'polite') => {
+  if (!body.value.trim()) {
+    error.value = 'Please enter some text in the message body first'
+    return
+  }
+
+  rewriting.value = true
+  rewriteStyle.value = style
+  error.value = null
+
+  try {
+    const config = useRuntimeConfig()
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
+    
+    const response = await $fetch<{ text: string }>(`${baseURL}/api/rewrite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: {
+        text: body.value.trim(),
+        style: style,
+      },
+    })
+
+    if (response && response.text) {
+      body.value = response.text
+    } else {
+      throw new Error('Invalid response from server')
+    }
+  } catch (err: any) {
+    console.error('Error rewriting text:', err)
+    error.value = err?.message || err?.data?.message || `Failed to rewrite text as ${style}. Please try again.`
+  } finally {
+    rewriting.value = false
+    rewriteStyle.value = null
+  }
 }
 </script>
 
@@ -192,16 +265,67 @@ const goBack = () => {
         </div>
 
         <div class="form-group">
-          <label for="body" class="label">Message</label>
+          <div class="label-row">
+            <label for="body" class="label">Message</label>
+            <div class="action-buttons">
+              <button
+                type="button"
+                @click="toggleRecording"
+                class="record-button"
+                :class="{ 'recording': recording, 'disabled': microphoneDisabled }"
+                :disabled="loading || recordingLoading || microphoneDisabled || rewriting"
+                :aria-label="recording ? 'Stop recording' : 'Start recording'"
+              >
+                <span class="record-icon" :class="{ 'recording': recording }">
+                  🎤
+                </span>
+                <span v-if="recording">Stop Recording</span>
+                <span v-else-if="recordingLoading">Processing...</span>
+                <span v-else>Record Voice</span>
+              </button>
+            </div>
+          </div>
           <textarea
             id="body"
             v-model="body"
             class="textarea"
             placeholder="Write your message here..."
             rows="12"
-            :disabled="loading"
+            :disabled="loading || rewriting"
             required
           ></textarea>
+          <div class="rewrite-buttons">
+            <button
+              type="button"
+              @click="rewriteText('formal')"
+              class="rewrite-button rewrite-formal"
+              :disabled="loading || rewriting || !body.trim()"
+              :class="{ 'rewriting': rewriting && rewriteStyle === 'formal' }"
+            >
+              <span v-if="rewriting && rewriteStyle === 'formal'" class="button-content">
+                <span class="spinner-small"></span>
+                Making Formal...
+              </span>
+              <span v-else class="button-content">📝 Make Formal</span>
+            </button>
+            <button
+              type="button"
+              @click="rewriteText('polite')"
+              class="rewrite-button rewrite-polite"
+              :disabled="loading || rewriting || !body.trim()"
+              :class="{ 'rewriting': rewriting && rewriteStyle === 'polite' }"
+            >
+              <span v-if="rewriting && rewriteStyle === 'polite'" class="button-content">
+                <span class="spinner-small"></span>
+                Making Polite...
+              </span>
+              <span v-else class="button-content">✨ Make Polite</span>
+            </button>
+          </div>
+          <div v-if="recording" class="recording-indicator">
+            <span class="recording-dot"></span>
+            Recording in progress...
+          </div>
         </div>
 
         <div v-if="error" class="error-message">
@@ -328,6 +452,167 @@ const goBack = () => {
   font-size: 0.75rem;
   color: #718096;
   margin-top: 0.25rem;
+}
+
+.label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.record-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.record-button:hover:not(:disabled) {
+  background: #f7f9ff;
+  border-color: #5568d3;
+}
+
+.record-button.recording {
+  background: #fee;
+  color: #c53030;
+  border-color: #c53030;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.record-button.recording:hover:not(:disabled) {
+  background: #fed7d7;
+  border-color: #b91c1c;
+}
+
+.record-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.record-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.record-icon {
+  font-size: 1rem;
+  display: inline-block;
+  transition: transform 0.2s;
+}
+
+.record-icon.recording {
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #fee;
+  border: 1px solid #fc8181;
+  border-radius: 6px;
+  color: #c53030;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.recording-dot {
+  width: 8px;
+  height: 8px;
+  background: #c53030;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rewrite-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.rewrite-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: white;
+  color: #4a5568;
+  border: 2px solid #cbd5e0;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.rewrite-button:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #a0aec0;
+  transform: translateY(-1px);
+}
+
+.rewrite-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.rewrite-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.rewrite-button.rewriting {
+  background: #edf2f7;
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.rewrite-button.rewrite-formal:hover:not(:disabled) {
+  border-color: #4299e1;
+  color: #2b6cb0;
+}
+
+.rewrite-button.rewrite-polite:hover:not(:disabled) {
+  border-color: #48bb78;
+  color: #2f855a;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
 }
 
 .input,
