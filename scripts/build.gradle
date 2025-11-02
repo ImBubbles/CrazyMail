@@ -1,0 +1,47 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.crazymail'
+version = '1.0.0'
+sourceCompatibility = '21'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Gson for JSON parsing
+    implementation 'com.google.code.gson:gson:2.10.1'
+    
+    // Add other dependencies as needed
+    // For example, if you need to make HTTP requests to APIs:
+    // implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+    
+    // Test dependencies
+    testImplementation 'junit:junit:4.13.2'
+}
+
+// Configure the Java compiler to use Java 21
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+// Task to compile all Java files
+tasks.register('compileScripts', JavaCompile) {
+    source = fileTree(dir: '.', include: '*.java')
+    destinationDirectory = file('build/classes')
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+// Task to create a JAR with all scripts
+jar {
+    manifest {
+        attributes 'Main-Class': 'scripts.aiScan'
+    }
+    
+    from configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
