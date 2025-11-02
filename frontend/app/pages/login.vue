@@ -11,16 +11,29 @@ const password = ref('')
 // Load saved credentials on mount
 const savedCredentials = computed(() => getCredentials())
 
+const errorMessage = ref('')
+const isLoading = ref(false)
+
 const saveCredentials = async () => {
   if (!username.value || !password.value) {
-    alert('Please fill in both username and password')
+    errorMessage.value = 'Please fill in both username and password'
     return
   }
 
-  await saveCreds(username.value, password.value)
-  
-  // Navigate to homepage after saving credentials
-  await router.push('/')
+  errorMessage.value = ''
+  isLoading.value = true
+
+  try {
+    await saveCreds(username.value, password.value)
+    
+    // Navigate to homepage after saving credentials
+    await router.push('/')
+  } catch (err: any) {
+    console.error('Failed to save credentials:', err)
+    errorMessage.value = err?.message || 'Failed to create account. Please try again.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const clearCredentials = () => {
@@ -63,7 +76,13 @@ const clearCredentials = () => {
           />
         </div>
 
-        <button type="submit" class="submit-button">Save Credentials</button>
+        <button type="submit" class="submit-button" :disabled="isLoading">
+          {{ isLoading ? 'Creating Account...' : 'Save Credentials' }}
+        </button>
+        
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
       </form>
 
       <div v-if="hasCredentials" class="saved-info">
@@ -216,5 +235,22 @@ const clearCredentials = () => {
 .clear-button:hover {
   background: #fc8181;
   color: white;
+}
+
+.error-message {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: #fed7d7;
+  color: #742a2a;
+  border: 1px solid #fc8181;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
 }
 </style>

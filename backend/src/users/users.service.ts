@@ -7,12 +7,16 @@ export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
   create(createUserDto: CreateUserDto) {
-    this.logger.log('[POST] /users Request received for username: ${createUserDto.username}');
+    this.logger.log(`[POST] /users Request received for username: ${createUserDto.username}`);
     this.logger.debug('Received Full Payload: ', createUserDto);
 
-    return{
+    // TODO: Add database save logic here
+    // For now, just return success response
+    
+    return {
       message: 'User registered successfully.',
       status: 'success_mock',
+      username: createUserDto.username,
     };
   }
 

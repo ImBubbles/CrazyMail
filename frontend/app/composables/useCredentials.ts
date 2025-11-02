@@ -13,37 +13,32 @@ export const useCredentials = () => {
   )
 
   const saveCredentials = async (username: string, password: string) => {
+    const config = useRuntimeConfig()
+    const baseURL = config.public.apiBase || 'http://localhost:4000'
+    
+    // Send account creation request to backend
     try {
-      const config = useRuntimeConfig()
-      const baseURL = config.public.apiBase || 'http://localhost:3000'
+      const response = await $fetch(`${baseURL}/users`, {
+        method: 'POST',
+        body: {
+          username,
+          password
+        },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      console.log('Account created successfully in backend:', response)
       
-      // Send account creation request to backend
-      try {
-        await $fetch(`${baseURL}/api/users`, {
-          method: 'POST',
-          body: {
-            username,
-            password
-          },
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        console.log('Account created successfully in backend')
-      } catch (err: any) {
-        // Log error but don't block local storage
-        // In case backend is down or endpoint doesn't exist yet
-        console.warn('Failed to create account in backend:', err?.message || err)
-        // Continue with local storage even if backend fails
+      // Only save credentials locally if backend request succeeds
+      credentials.value = { username, password }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('accountCredentials', JSON.stringify(credentials.value))
       }
     } catch (err: any) {
-      console.error('Error during account creation:', err)
-    }
-    
-    // Save credentials locally regardless of backend result
-    credentials.value = { username, password }
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('accountCredentials', JSON.stringify(credentials.value))
+      console.error('Failed to create account in backend:', err)
+      // Re-throw to let the UI handle the error
+      throw new Error(err?.message || err?.data?.message || 'Failed to create account. Please try again.')
     }
   }
 
