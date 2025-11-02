@@ -31,22 +31,46 @@ export const useEmails = () => {
       const config = useRuntimeConfig()
       const baseURL = config.public.apiBase || 'http://localhost:3000'
       
-      // Try to fetch from backend, fallback to mock data if unavailable
+      // Try to fetch from backend with timeout, fallback to mock data if unavailable
       try {
-        const response = await $fetch<Email[]>(`${baseURL}/api/emails`, {
-          method: 'GET',
+        // Create a timeout promise
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), 2000) // 2 second timeout
         })
-        emails.value = response
-      } catch (err) {
-        // If backend is not available, use mock data
-        console.warn('Backend not available, using mock data:', err)
+        
+        // Race between fetch and timeout
+        const response = await Promise.race([
+          $fetch<Email[]>(`${baseURL}/api/emails`, {
+            method: 'GET',
+            timeout: 2000,
+          }).catch((err) => {
+            // If fetch fails, throw to be caught by outer catch
+            throw err
+          }),
+          timeoutPromise
+        ])
+        
+        // If response is valid and not empty, use it
+        if (response && Array.isArray(response) && response.length > 0) {
+          emails.value = response
+        } else {
+          // Empty response, use mock data
+          console.warn('Backend returned empty response, using mock data')
+          emails.value = getMockEmails()
+        }
+      } catch (err: any) {
+        // If backend is not available or times out, use mock data
+        console.warn('Backend not available, using mock data:', err?.message || err)
         emails.value = getMockEmails()
+        // Clear error since we have mock data
+        error.value = null
       }
     } catch (err: any) {
-      error.value = err.message || 'Failed to fetch emails'
       console.error('Error fetching emails:', err)
       // Use mock data on error
       emails.value = getMockEmails()
+      // Clear error since we have mock data
+      error.value = null
     } finally {
       loading.value = false
     }

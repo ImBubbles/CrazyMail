@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { useCredentials } from '../composables/useCredentials'
 import { useEmails } from '../composables/useEmails'
-import { watch, onMounted } from 'vue'
+import { watch, onMounted, ref } from 'vue'
 const { hasCredentials } = useCredentials()
 import { useRouter } from 'vue-router'
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 const router = useRouter()
+
+const isPlayingAudio = ref(false)
+const isGeneratingAudio = ref(false)
+let currentAudio: HTMLAudioElement | null = null
+let currentAudioUrl: string | null = null
 const { 
   filteredEmails, 
   allTags, 
@@ -61,6 +66,103 @@ const createAudioStreamFromText = async (text: string): Promise<Uint8Array> => {
   }
   return content;
 };
+
+const playEmailAudio = async () => {
+  if (!selectedEmail.value) return;
+
+  // If audio is paused, resume it
+  if (currentAudio && !isPlayingAudio.value) {
+    try {
+      await currentAudio.play();
+      isPlayingAudio.value = true;
+      return;
+    } catch (error) {
+      console.error('Error resuming audio:', error);
+      // If resume fails, clear and regenerate
+      stopEmailAudio();
+    }
+  }
+
+  // If audio is already playing, nothing to do (button should pause instead)
+  if (currentAudio && isPlayingAudio.value) {
+    return;
+  }
+
+  try {
+    isGeneratingAudio.value = true;
+    const audioData = await createAudioStreamFromText(selectedEmail.value.body);
+    
+    // Create a blob from the audio data and play it
+    // Create a new ArrayBuffer from the Uint8Array to ensure proper type
+    const arrayBuffer = new ArrayBuffer(audioData.length);
+    const view = new Uint8Array(arrayBuffer);
+    view.set(audioData);
+    const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+    const audioUrl = URL.createObjectURL(blob);
+    currentAudioUrl = audioUrl;
+    
+    currentAudio = new Audio(audioUrl);
+    
+    currentAudio.addEventListener('ended', () => {
+      isPlayingAudio.value = false;
+      cleanupAudio();
+    });
+    
+    currentAudio.addEventListener('error', (error) => {
+      console.error('Error playing audio:', error);
+      isPlayingAudio.value = false;
+      isGeneratingAudio.value = false;
+      cleanupAudio();
+    });
+    
+    await currentAudio.play();
+    isPlayingAudio.value = true;
+    isGeneratingAudio.value = false;
+  } catch (error) {
+    console.error('Error generating or playing audio:', error);
+    isGeneratingAudio.value = false;
+    isPlayingAudio.value = false;
+    cleanupAudio();
+    alert('Failed to generate audio. Please try again.');
+  }
+};
+
+const cleanupAudio = () => {
+  if (currentAudioUrl) {
+    URL.revokeObjectURL(currentAudioUrl);
+    currentAudioUrl = null;
+  }
+  currentAudio = null;
+};
+
+const stopEmailAudio = () => {
+  if (currentAudio) {
+    currentAudio.pause();
+    isPlayingAudio.value = false;
+    // Don't cleanup here - allow resume by keeping the audio element
+  }
+};
+
+const handleAudioButtonClick = () => {
+  if (isPlayingAudio.value) {
+    // If playing, pause it
+    stopEmailAudio();
+  } else {
+    // If not playing, start or resume
+    playEmailAudio();
+  }
+};
+
+// Clean up audio when email modal is closed
+watch(selectedEmail, (newEmail) => {
+  if (!newEmail) {
+    if (currentAudio) {
+      currentAudio.pause();
+      isPlayingAudio.value = false;
+    }
+    cleanupAudio();
+  }
+});
 // Redirect to login if no credentials
 watch(hasCredentials, (hasCreds) => {
   if (!hasCreds) {
@@ -162,13 +264,27 @@ const createEmail = () => {
       <div class="email-modal">
         <div class="email-modal-header">
           <h2 class="email-modal-subject">{{ selectedEmail.subject }}</h2>
-          <button 
-            @click="setSelectedEmail(null)"
-            class="close-button"
-            aria-label="Close email"
-          >
-            ×
-          </button>
+          <div class="header-actions">
+            <button 
+              @click="handleAudioButtonClick()"
+              :disabled="isGeneratingAudio"
+              class="audio-button"
+              :class="{ playing: isPlayingAudio, loading: isGeneratingAudio }"
+              aria-label="Play/Pause email audio"
+            >
+              <span v-if="isGeneratingAudio" class="audio-icon">⏳</span>
+              <span v-else-if="isPlayingAudio" class="audio-icon">⏸</span>
+              <span v-else class="audio-icon">🔊</span>
+              <span class="audio-text">{{ isGeneratingAudio ? 'Generating...' : isPlayingAudio ? 'Pause' : 'Listen' }}</span>
+            </button>
+            <button 
+              @click="setSelectedEmail(null)"
+              class="close-button"
+              aria-label="Close email"
+            >
+              ×
+            </button>
+          </div>
         </div>
         <div class="email-modal-content">
           <div class="email-modal-meta">
@@ -455,6 +571,50 @@ const createEmail = () => {
   margin: 0;
   flex: 1;
   padding-right: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.audio-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.audio-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.audio-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.audio-button.playing {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.audio-icon {
+  font-size: 1rem;
+}
+
+.audio-text {
+  font-size: 0.875rem;
 }
 
 .close-button {
