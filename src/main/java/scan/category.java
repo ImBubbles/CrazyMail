@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 
 public enum category
 {
-        SPAM, SCHOOL, UNFILTERED, LONG;
+        SPAM, UNFILTERED, LONG, STUFFFROMRYANMILLER, GEMINIFAIL, PHISHING, GUIDE, NEWSLETTER, SUPPORT, SYSTEM, WELCOME;
 
         public static String convertEnumToString()
         {

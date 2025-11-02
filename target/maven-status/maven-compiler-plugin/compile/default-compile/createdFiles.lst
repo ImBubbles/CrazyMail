@@ -2,3 +2,5 @@ scan\aiScan.class
 scan\basicScan.class
 scan\category.class
 scan\allScan.class
+scan\GenerateTextFromTextInput.class
+scan\loadScan.class
