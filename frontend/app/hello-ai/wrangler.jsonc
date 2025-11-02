@@ -1,0 +1,12 @@
+{
+    "$schema": "./node_modules/wrangler/config-schema.json",
+    "name": "hello-ai",
+    "compatibility_date": "2025-11-02",
+    "main": "index.ts",
+    "ai": {
+        "binding": "AI"
+      },
+    "vars": {
+      "API_ACCOUNT_ID": "<EXAMPLE-ACCOUNT-ID>"
+    }
+  }
