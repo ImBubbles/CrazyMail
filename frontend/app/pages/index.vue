@@ -18,6 +18,12 @@ const emailSummary = ref<string | null>(null)
 const isGeneratingSummary = ref(false)
 const summaryError = ref<string | null>(null)
 
+// Translation state
+const emailTranslation = ref<string | null>(null)
+const isTranslating = ref(false)
+const translationError = ref<string | null>(null)
+const selectedLanguage = ref<string>('Spanish')
+
 const { 
   filteredEmails, 
   allTags, 
@@ -173,6 +179,30 @@ const handleAudioButtonClick = () => {
   }
 };
 
+// Available languages for translation
+const languages = [
+  { code: 'Spanish', name: 'Spanish (Español)' },
+  { code: 'French', name: 'French (Français)' },
+  { code: 'German', name: 'German (Deutsch)' },
+  { code: 'Italian', name: 'Italian (Italiano)' },
+  { code: 'Portuguese', name: 'Portuguese (Português)' },
+  { code: 'Russian', name: 'Russian (Русский)' },
+  { code: 'Japanese', name: 'Japanese (日本語)' },
+  { code: 'Chinese', name: 'Chinese (中文)' },
+  { code: 'Korean', name: 'Korean (한국어)' },
+  { code: 'Arabic', name: 'Arabic (العربية)' },
+  { code: 'Hindi', name: 'Hindi (हिन्दी)' },
+  { code: 'Dutch', name: 'Dutch (Nederlands)' },
+  { code: 'Polish', name: 'Polish (Polski)' },
+  { code: 'Turkish', name: 'Turkish (Türkçe)' },
+  { code: 'Swedish', name: 'Swedish (Svenska)' },
+  { code: 'Norwegian', name: 'Norwegian (Norsk)' },
+  { code: 'Danish', name: 'Danish (Dansk)' },
+  { code: 'Finnish', name: 'Finnish (Suomi)' },
+  { code: 'Greek', name: 'Greek (Ελληνικά)' },
+  { code: 'Czech', name: 'Czech (Čeština)' },
+]
+
 // Generate email summary
 const generateSummary = async () => {
   if (!selectedEmail.value) return;
@@ -201,7 +231,36 @@ const generateSummary = async () => {
   }
 };
 
-// Clean up audio and summary when email modal is closed
+// Translate email
+const translateEmail = async () => {
+  if (!selectedEmail.value || !selectedLanguage.value) return;
+
+  isTranslating.value = true;
+  translationError.value = null;
+  emailTranslation.value = null;
+
+  try {
+    const config = useRuntimeConfig();
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001';
+
+    const response = await $fetch<{ translatedText: string }>(`${baseURL}/api/translate`, {
+      method: 'POST',
+      body: {
+        text: selectedEmail.value.body,
+        targetLanguage: selectedLanguage.value,
+      },
+    });
+
+    emailTranslation.value = response.translatedText;
+  } catch (err: any) {
+    console.error('Error translating email:', err);
+    translationError.value = err.message || 'Failed to translate email. Please try again.';
+  } finally {
+    isTranslating.value = false;
+  }
+};
+
+// Clean up audio, summary, and translation when email modal is closed
 watch(selectedEmail, (newEmail) => {
   if (!newEmail) {
     if (currentAudio) {
@@ -209,9 +268,11 @@ watch(selectedEmail, (newEmail) => {
       isPlayingAudio.value = false;
     }
     cleanupAudio();
-    // Reset summary when email is closed
+    // Reset summary and translation when email is closed
     emailSummary.value = null;
     summaryError.value = null;
+    emailTranslation.value = null;
+    translationError.value = null;
   }
 });
 // Redirect to login if no credentials
@@ -438,6 +499,29 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
         <div class="email-modal-header">
           <h2 class="email-modal-subject">{{ selectedEmail.subject }}</h2>
           <div class="header-actions">
+            <div class="translation-controls">
+              <select 
+                v-model="selectedLanguage"
+                class="language-selector"
+                :disabled="isTranslating"
+                aria-label="Select target language"
+              >
+                <option v-for="lang in languages" :key="lang.code" :value="lang.code">
+                  {{ lang.name }}
+                </option>
+              </select>
+              <button 
+                @click="translateEmail()"
+                :disabled="isTranslating || !selectedLanguage"
+                class="translate-button"
+                :class="{ loading: isTranslating }"
+                aria-label="Translate email"
+              >
+                <span v-if="isTranslating" class="translate-icon">⏳</span>
+                <span v-else class="translate-icon">🌐</span>
+                <span class="translate-text">{{ isTranslating ? 'Translating...' : 'Translate' }}</span>
+              </button>
+            </div>
             <button 
               @click="generateSummary()"
               :disabled="isGeneratingSummary"
@@ -508,6 +592,24 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
           </div>
           <div class="email-modal-body">
             {{ selectedEmail.body }}
+          </div>
+
+          <!-- Email Translation Section -->
+          <div v-if="emailTranslation || isTranslating || translationError" class="email-translation-section">
+            <div class="translation-header">
+              <h3 class="translation-title">Translation ({{ selectedLanguage }})</h3>
+            </div>
+            <div v-if="isTranslating" class="translation-loading">
+              <div class="spinner-small"></div>
+              <span>Translating to {{ selectedLanguage }}...</span>
+            </div>
+            <div v-else-if="translationError" class="translation-error">
+              <p class="error-message">{{ translationError }}</p>
+              <button @click="translateEmail()" class="retry-button-small">Retry</button>
+            </div>
+            <div v-else-if="emailTranslation" class="translation-content">
+              {{ emailTranslation }}
+            </div>
           </div>
 
           <!-- Email Summary Section -->
@@ -902,6 +1004,80 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.translation-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.language-selector {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 150px;
+}
+
+.language-selector:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.language-selector:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.language-selector option {
+  background: #2d3748;
+  color: white;
+}
+
+.translate-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.translate-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.translate-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.translate-button.loading {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.translate-icon {
+  font-size: 1rem;
+}
+
+.translate-text {
+  font-size: 0.875rem;
 }
 
 .summary-button {
@@ -1128,6 +1304,53 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
   border-left: 3px solid #667eea;
 }
 
+.email-translation-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.translation-header {
+  margin-bottom: 1rem;
+}
+
+.translation-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.translation-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.translation-error {
+  color: #e53e3e;
+}
+
+.translation-error .error-message {
+  color: #e53e3e;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.translation-content {
+  color: #2d3748;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  background: #fff5e6;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  border-left: 3px solid #f59e0b;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
 @media (max-width: 768px) {
   .inbox-content {
     grid-template-columns: 1fr;
@@ -1155,6 +1378,29 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
 
   .email-modal-content {
     padding: 1.5rem;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .translation-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .language-selector {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .translate-button,
+  .summary-button,
+  .audio-button {
+    flex: 1;
+    min-width: 120px;
   }
 }
 </style>

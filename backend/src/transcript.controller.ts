@@ -324,5 +324,92 @@ export class TranscriptController {
       );
     }
   }
+
+  @Post('translate')
+  async translateEmail(
+    @Body() body: { text: string; targetLanguage: string },
+  ): Promise<{ translatedText: string }> {
+    const { text, targetLanguage } = body;
+
+    if (!text || !text.trim()) {
+      throw new BadRequestException('Email text is required');
+    }
+
+    if (!targetLanguage || !targetLanguage.trim()) {
+      throw new BadRequestException('Target language is required');
+    }
+
+    const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN;
+    if (!cloudflareApiToken) {
+      throw new InternalServerErrorException(
+        'Cloudflare API token not configured. Please set CLOUDFLARE_API_TOKEN environment variable.',
+      );
+    }
+
+    const cloudflareAccountId =
+      process.env.CLOUDFLARE_ACCOUNT_ID ||
+      '023e105f4ecef8ad9ca31a8372d0c353';
+
+    // Use Cloudflare's LLM model for translation
+    const url = `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
+
+    const prompt = `Translate the following email text to ${targetLanguage}. Preserve the original formatting, tone, and meaning. Return ONLY the translated text without any additional explanations or labels:\n\n${text}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cloudflareApiToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Cloudflare API error:', response.status, response.statusText);
+        console.error('Cloudflare error response:', errorText);
+        throw new InternalServerErrorException(
+          `Cloudflare API error: ${response.status} ${response.statusText}. Details: ${errorText}`,
+        );
+      }
+
+      const result: any = await response.json();
+
+      // Cloudflare LLM response format - typically returns { response: string } or { result: { response: string } }
+      let translatedText: string;
+      if (result.result?.response) {
+        translatedText = result.result.response;
+      } else if (result.response) {
+        translatedText = result.response;
+      } else if (result.result && typeof result.result === 'string') {
+        translatedText = result.result;
+      } else if (typeof result === 'string') {
+        translatedText = result;
+      } else if (result.text) {
+        translatedText = result.text;
+      } else {
+        console.error('Unexpected response format:', JSON.stringify(result, null, 2));
+        throw new InternalServerErrorException(
+          `Unexpected response format from Cloudflare API. Response: ${JSON.stringify(result)}`,
+        );
+      }
+
+      return { translatedText: translatedText.trim() };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+      console.error('Error calling Cloudflare API:', error);
+      throw new InternalServerErrorException(
+        'Failed to translate email: ' + (error as Error).message,
+      );
+    }
+  }
 }
 
