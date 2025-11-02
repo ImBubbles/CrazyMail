@@ -7,6 +7,10 @@ const router = useRouter()
 
 const username = ref('')
 const password = ref('')
+const statusMessage = ref('')
+
+const apiBaseURL = 'http://localhost:3001'
+const API_ENDPOINT = ''
 
 // Load saved credentials on mount
 const savedCredentials = computed(() => getCredentials())
