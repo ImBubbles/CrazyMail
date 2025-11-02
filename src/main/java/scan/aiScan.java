@@ -14,21 +14,31 @@ public class aiScan
         Respond with only the category name, exactly as it appears in the list.
         """;
 
-public static void main(String[] args){}
+public static void main(String[] args){
+
+    // Call the classification logic with test arguments here
+    String testSender = "chef@donuts.com";
+    String testMessage = "I have one dozen of donuts just for you!";
+    
+    // Call the main classification logic (which you should rename to classifyEmail)
+    category result = main(testSender, testMessage, category.UNFILTERED);
+    
+    System.out.println("Test Sender: " + testSender);
+    System.out.println("Test Message: " + testMessage);
+    System.out.println("Returned Category: " + result);
+}
 
 
 
     public static category main(String sender, String message, category narrowed)
     {
 
-        //String temporarySender = "ryan.d.miller@okstate.edu";
+        //String temporarySender = "redacted@okstate.edu";
         //String temporaryMessage = """""";
 
         String classificationText = "";
 
-        try {
-
-        Client client = new Client();
+        try (Client client = new Client()){
 
         String categoriesString = category.convertEnumToString(category.UNFILTERED);
 
