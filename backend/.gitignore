@@ -31,3 +31,6 @@ Thumbs.db
 
 # Editor specific (if you are using VS Code)
 .vscode
+
+# Test files (OneDrive placeholder issues)
+test/*
