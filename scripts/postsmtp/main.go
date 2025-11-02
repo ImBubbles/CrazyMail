@@ -145,6 +145,11 @@ func main() {
 	// Set handlers for the server
 	server.SetDefaultHandlers(handlers)
 
+	// Get STARTTLS configuration from environment variables
+	tlsEnabled := getEnvBool("SMTP_TLS_ENABLED", false)
+	tlsCertFile := getEnv("SMTP_TLS_CERT_FILE", "")
+	tlsKeyFile := getEnv("SMTP_TLS_KEY_FILE", "")
+
 	// Create server configuration
 	serverConfig := &config.Config{
 		ServerHostname: getEnv("SMTP_SERVER_HOSTNAME", "localhost"),
@@ -154,12 +159,24 @@ func main() {
 		ClientHostname: getEnv("SMTP_CLIENT_HOSTNAME", "localhost"),
 		Relay:          false,
 		RequireTLS:     false,
+		// TLS configuration for STARTTLS
+		TLSEnabled:  tlsEnabled,
+		TLSCertFile: tlsCertFile,
+		TLSKeyFile:  tlsKeyFile,
 	}
 
 	// Start the server using Listen function
 	log.Println("Starting SMTP server...")
 	log.Printf("Server configuration - Hostname: %s, Domain: %s, Address: %s, Port: %d\n",
 		serverConfig.ServerHostname, serverConfig.ServerDomain, serverConfig.ServerAddress, serverConfig.ServerPort)
+	if serverConfig.TLSEnabled {
+		log.Printf("STARTTLS enabled - Cert file: %s, Key file: %s\n", serverConfig.TLSCertFile, serverConfig.TLSKeyFile)
+		if serverConfig.TLSCertFile == "" || serverConfig.TLSKeyFile == "" {
+			log.Printf("WARNING: STARTTLS is enabled but certificate or key file path is missing!\n")
+		}
+	} else {
+		log.Println("STARTTLS disabled")
+	}
 	log.Println("SMTP server is ready and listening for connections...")
 	log.Println("Waiting for incoming connections...")
 	server.Listen(smtpServer, serverConfig)
@@ -170,4 +187,16 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// getEnvBool parses a boolean environment variable
+// Returns true if the value is "true", "1", "yes", or "on" (case-insensitive)
+// Returns false for any other value or if the variable is not set
+func getEnvBool(key string, defaultValue bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	valueLower := strings.ToLower(strings.TrimSpace(value))
+	return valueLower == "true" || valueLower == "1" || valueLower == "yes" || valueLower == "on"
 }
