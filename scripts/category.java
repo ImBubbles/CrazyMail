@@ -2,5 +2,5 @@ package scripts;
 
 public enum category
     {
-        SPAM, SCHOOL, UNFILTERED
+        SPAM, SCHOOL, UNFILTERED, LONG
     }

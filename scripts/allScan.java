@@ -1,7 +1,4 @@
 package scripts;
-import scripts.basicScan;
-import scripts.aiScan;
-import scripts.category;
 
 //Combines basic and AI scans
 public class allScan {
