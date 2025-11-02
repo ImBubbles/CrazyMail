@@ -1,17 +1,74 @@
 package scan;
 
+import com.google.genai.Client;
+import com.google.genai.types.GenerateContentResponse;
+
 //Combines basic and AI scans
 public class allScan {
 
-    public static category main(/*Someone (Hayden and/or Daniel) find a way to put the email AND email address in here*/ String sender, String message)
+    private static final String CLASSIFICATION_PROMPT_TEMPLATE = """
+        You are an expert email classifier. Classify the following email into one single category from this list: [%s].
+        Email Sender: %s.
+        Email Content: %s.
+        Respond with only the category name, exactly as it appears in the list.
+        """;
+
+    public static category main(String sender, String message)
     {
         //Basic scan (currently just gives UNFILTERED)
         category type = basicScan.main(sender, message);
         
         //AI Scan (currently just gives UNFILTERED)
-        type = aiScan.main(sender, message, type);
+        type = allScan.aiScan(sender, message, category.NEWSLETTER);
 
         //Return
         return type;
+    }
+
+    public static category aiScan(String sender, String message, category narrowed)
+    {
+
+    //     //String temporarySender = "redacted@okstate.edu";
+    //     //String temporaryMessage = """""";
+
+    //     String classificationText = "";
+
+    //     try (Client client = new Client()){
+
+    //     String categoriesString = category.convertEnumToString(category.UNFILTERED);
+
+    //     String prompt = String.format(
+    //     CLASSIFICATION_PROMPT_TEMPLATE,
+    //     categoriesString, // %s for the list of categories
+    //     sender,           // %s for the sender
+    //     message           // %s for the message content
+    // );
+    
+    //     GenerateContentResponse response =
+    //     client.models.generateContent(
+    //         "gemini-2.5-flash",
+    //         prompt,
+    //         null);
+
+    //         // 2. This line ONLY runs if the call succeeds
+    //         String output = response.text();
+    //         System.out.println(output);
+
+    //         classificationText = response.text();
+    //         return category.valueOf(classificationText.toUpperCase());
+
+    //     } catch (IllegalArgumentException e) {
+    //         // This catches the specific error if AI returns a string that is NOT a valid enum constant.
+    //         System.err.println("Classification Error: AI returned unparseable category: " + classificationText);
+    //         // Return a specific error code, or the UNFILTERED default.
+    //         return category.UNFILTERED;
+    //     } catch (Exception e) {
+    //         // Catch all other errors (API, network, etc.)
+    //         System.err.println("FATAL ERROR: Gemini API call failed or client initialization error.");
+    //         e.printStackTrace();
+    //         return category.UNFILTERED;
+    //}
+    
+     return narrowed;
     }
 }
