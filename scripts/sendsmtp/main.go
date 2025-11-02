@@ -188,23 +188,28 @@ func sendToDomain(domain string, recipients []string, jsonMail *mail.JSONMail) e
 
 		log.Printf("Connected to %s, attempting SMTP conversation...\n", addr)
 
-		// Send email using MySMTP API v0.0.8 (includes ClientConn fixes and improvements)
+		// Send email using MySMTP API v0.0.10 (includes ClientConn fixes and improvements)
 		// NewClientConnFromJSONMail handles the SMTP conversation and sends the email
 		// The connection must remain open during the SMTP conversation
 		// The ClientConn performs HELO, MAIL FROM, RCPT TO, DATA, and QUIT synchronously
-		// With v0.0.8, the ClientConn includes Close() method and improved connection handling
+		// With v0.0.10, the ClientConn includes latest improvements and better connection handling
 
 		// Attempt SMTP conversation with proper cleanup
 		var clientConn *smtp.ClientConn
+		var smtpErr error
 
 		func() {
 			// Ensure connection is closed even if SMTP conversation fails
 			defer conn.Close()
-			clientConn = smtp.NewClientConnFromJSONMail(conn, domainJsonMail)
+			clientConn, smtpErr = smtp.NewClientConnFromJSONMail(conn, domainJsonMail)
 		}()
 
-		if clientConn == nil {
-			lastErr = fmt.Errorf("failed to create client connection or SMTP conversation failed")
+		if clientConn == nil || smtpErr != nil {
+			if smtpErr != nil {
+				lastErr = fmt.Errorf("failed to create client connection or SMTP conversation failed: %v", smtpErr)
+			} else {
+				lastErr = fmt.Errorf("failed to create client connection or SMTP conversation failed")
+			}
 			log.Printf("Warning: SMTP conversation failed on %s: %v, trying next MX server...\n", addr, lastErr)
 			continue
 		}
