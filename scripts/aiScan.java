@@ -4,8 +4,8 @@ package scripts;
 public class aiScan
 {
 
-    public static void main(String sender, String message, scripts.basicScan.category narrowed)
+    public static category main(String sender, String message, category narrowed)
     {
-        
+        return category.UNFILTERED;
     }
 }
