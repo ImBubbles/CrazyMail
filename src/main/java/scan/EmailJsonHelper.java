@@ -1,4 +1,4 @@
-package model;
+package scan;
 
 import org.json.JSONObject;
 
@@ -110,7 +110,7 @@ public class EmailJsonHelper {
         // Deserialize Date from timestamp
         if (!jsonObject.isNull("receivedDate") && jsonObject.has("receivedDate")) {
             long timestamp = jsonObject.getLong("receivedDate");
-            email.setReceivedDate(new Date(timestamp));
+            email.setCrazyCategory(new Date(timestamp));
         }
 
         return email;

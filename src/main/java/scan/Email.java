@@ -1,4 +1,4 @@
-package model;
+package scan;
 
 import java.util.Date;
 
@@ -9,21 +9,21 @@ public class Email {
     private String bcc;
     private String subject;
     private String body;
-    private Date receivedDate;
+    private Date CrazyCategory;
 
     // Constructor with no parameters
     public Email() {
     }
 
     // Constructor with all fields
-    public Email(String from, String to, String cc, String bcc, String subject, String body, Date receivedDate) {
+    public Email(String from, String to, String cc, String bcc, String subject, String body, String crazyCategory) {
         this.from = from;
         this.to = to;
         this.cc = cc;
         this.bcc = bcc;
         this.subject = subject;
         this.body = body;
-        this.receivedDate = receivedDate;
+        this.CrazyCategory = crazyCategory;
     }
 
     // Getters
@@ -51,8 +51,8 @@ public class Email {
         return body;
     }
 
-    public Date getReceivedDate() {
-        return receivedDate;
+    public Date getCrazyCategory() {
+       return CrazyCategory;
     }
 
     // Setters
@@ -80,8 +80,8 @@ public class Email {
         this.body = body;
     }
 
-    public void setReceivedDate(Date receivedDate) {
-        this.receivedDate = receivedDate;
+    public void setCrazyCategory(String crazyCategory) {
+        this.CrazyCategory = crazyCategory;
     }
 }
 
