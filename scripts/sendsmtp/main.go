@@ -33,6 +33,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/ImBubbles/MySMTP/mail"
 	"github.com/ImBubbles/MySMTP/smtp"
@@ -162,12 +163,20 @@ func sendToDomain(domain string, recipients []string, jsonMail *mail.JSONMail) e
 		log.Printf("Connecting to MX server %s (priority %d) for domain %s...\n",
 			host, mx.Pref, domain)
 
-		conn, err := net.Dial("tcp", addr)
+		// Dial with timeout to prevent hanging
+		dialer := &net.Dialer{
+			Timeout: 10 * time.Second,
+		}
+		conn, err := dialer.Dial("tcp", addr)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to connect to %s: %v", addr, err)
 			log.Printf("Warning: %v, trying next MX server...\n", lastErr)
 			continue
 		}
+
+		// Set read and write timeouts to prevent hanging
+		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 
 		// Ensure connection is closed when function returns
 		defer conn.Close()
