@@ -499,40 +499,6 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
         <div class="email-modal-header">
           <h2 class="email-modal-subject">{{ selectedEmail.subject }}</h2>
           <div class="header-actions">
-            <div class="translation-controls">
-              <select 
-                v-model="selectedLanguage"
-                class="language-selector"
-                :disabled="isTranslating"
-                aria-label="Select target language"
-              >
-                <option v-for="lang in languages" :key="lang.code" :value="lang.code">
-                  {{ lang.name }}
-                </option>
-              </select>
-              <button 
-                @click="translateEmail()"
-                :disabled="isTranslating || !selectedLanguage"
-                class="translate-button"
-                :class="{ loading: isTranslating }"
-                aria-label="Translate email"
-              >
-                <span v-if="isTranslating" class="translate-icon">⏳</span>
-                <span v-else class="translate-icon">🌐</span>
-                <span class="translate-text">{{ isTranslating ? 'Translating...' : 'Translate' }}</span>
-              </button>
-            </div>
-            <button 
-              @click="generateSummary()"
-              :disabled="isGeneratingSummary"
-              class="summary-button"
-              :class="{ loading: isGeneratingSummary }"
-              aria-label="Generate email summary"
-            >
-              <span v-if="isGeneratingSummary" class="summary-icon">⏳</span>
-              <span v-else class="summary-icon">📋</span>
-              <span class="summary-text">{{ isGeneratingSummary ? 'Generating...' : 'Summarize' }}</span>
-            </button>
             <button 
               @click="handleAudioButtonClick()"
               :disabled="isGeneratingAudio || !ELEVENLABS_API_KEY"
@@ -592,6 +558,44 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
           </div>
           <div class="email-modal-body">
             {{ selectedEmail.body }}
+          </div>
+
+          <!-- Translation and Summary Controls -->
+          <div class="email-actions-section">
+            <div class="translation-controls">
+              <select 
+                v-model="selectedLanguage"
+                class="language-selector"
+                :disabled="isTranslating"
+                aria-label="Select target language"
+              >
+                <option v-for="lang in languages" :key="lang.code" :value="lang.code">
+                  {{ lang.name }}
+                </option>
+              </select>
+              <button 
+                @click="translateEmail()"
+                :disabled="isTranslating || !selectedLanguage"
+                class="translate-button"
+                :class="{ loading: isTranslating }"
+                aria-label="Translate email"
+              >
+                <span v-if="isTranslating" class="translate-icon">⏳</span>
+                <span v-else class="translate-icon">🌐</span>
+                <span class="translate-text">{{ isTranslating ? 'Translating...' : 'Translate' }}</span>
+              </button>
+            </div>
+            <button 
+              @click="generateSummary()"
+              :disabled="isGeneratingSummary"
+              class="summary-button-inline"
+              :class="{ loading: isGeneratingSummary }"
+              aria-label="Generate email summary"
+            >
+              <span v-if="isGeneratingSummary" class="summary-icon">⏳</span>
+              <span v-else class="summary-icon">📋</span>
+              <span class="summary-text">{{ isGeneratingSummary ? 'Generating...' : 'Summarize' }}</span>
+            </button>
           </div>
 
           <!-- Email Translation Section -->
@@ -1007,69 +1011,84 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
   flex-wrap: wrap;
 }
 
+.email-actions-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
 .translation-controls {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1;
+  min-width: 300px;
 }
 
 .language-selector {
-  padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  border-radius: 6px;
+  padding: 0.625rem 0.875rem;
+  background: white;
+  border: 2px solid #e2e8f0;
+  color: #2d3748;
+  border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   min-width: 150px;
+  flex: 1;
 }
 
 .language-selector:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: #667eea;
+  background: #f7fafc;
 }
 
 .language-selector:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  background: #f7fafc;
 }
 
 .language-selector option {
-  background: #2d3748;
-  color: white;
+  background: white;
+  color: #2d3748;
 }
 
 .translate-button {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
   color: white;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
 }
 
 .translate-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .translate-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 .translate-button.loading {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
+  opacity: 0.8;
 }
 
 .translate-icon {
@@ -1108,6 +1127,37 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
 .summary-button.loading {
   background: rgba(255, 255, 255, 0.3);
   border-color: rgba(255, 255, 255, 0.5);
+}
+
+.summary-button-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.summary-button-inline:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.summary-button-inline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.summary-button-inline.loading {
+  opacity: 0.8;
 }
 
 .summary-icon {
@@ -1385,8 +1435,14 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
     gap: 0.5rem;
   }
 
+  .email-actions-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .translation-controls {
     width: 100%;
+    min-width: unset;
     flex-direction: column;
     align-items: stretch;
   }
@@ -1397,7 +1453,10 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
   }
 
   .translate-button,
-  .summary-button,
+  .summary-button-inline {
+    width: 100%;
+  }
+
   .audio-button {
     flex: 1;
     min-width: 120px;
