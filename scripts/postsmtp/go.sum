@@ -1,5 +1,5 @@
-github.com/ImBubbles/MySMTP v0.0.3 h1:0MGD5FnumqxGigMFCAANk2IdK7KDEr1I2se53Y14AoQ=
-github.com/ImBubbles/MySMTP v0.0.3/go.mod h1:XNzMAqm/7GgmPPIaYOVOA1TBFXT7mLMBYWUyK0EPxPk=
+github.com/ImBubbles/MySMTP v0.0.5 h1:B3xMqOcwhvLtRRVobAmjo0EL5TUnhGsho9BwatB1uBE=
+github.com/ImBubbles/MySMTP v0.0.5/go.mod h1:XNzMAqm/7GgmPPIaYOVOA1TBFXT7mLMBYWUyK0EPxPk=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=

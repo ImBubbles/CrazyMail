@@ -174,10 +174,11 @@ func sendToDomain(domain string, recipients []string, jsonMail *mail.JSONMail) e
 
 		log.Printf("Connected to %s, sending email...\n", addr)
 
-		// Send email using MySMTP API
+		// Send email using MySMTP API v0.0.5 (includes ClientConn fixes)
 		// NewClientConnFromJSONMail handles the SMTP conversation and sends the email
 		// The connection must remain open during the SMTP conversation
 		// The ClientConn performs HELO, MAIL FROM, RCPT TO, DATA, and QUIT synchronously
+		// With v0.0.5, the ClientConn bug fixes should prevent connection timeouts
 		clientConn := smtp.NewClientConnFromJSONMail(conn, domainJsonMail)
 		if clientConn == nil {
 			lastErr = fmt.Errorf("failed to create client connection")
@@ -188,6 +189,7 @@ func sendToDomain(domain string, recipients []string, jsonMail *mail.JSONMail) e
 		// The ClientConn manages the SMTP conversation synchronously during creation
 		// After NewClientConnFromJSONMail returns successfully, the email should be sent
 		// The SMTP conversation (HELO, MAIL FROM, RCPT TO, DATA, QUIT) is complete
+		// Connection is properly closed as part of the QUIT command in v0.0.5
 		log.Printf("Email sent successfully to domain %s via %s\n", domain, host)
 		return nil // Success!
 	}
