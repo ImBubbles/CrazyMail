@@ -16,7 +16,7 @@ public class aiScan
 
 public static void main(String[] args){
 
-    // Call the classification logic with test arguments here
+    /* // Call the classification logic with test arguments here
     String testSender = "chef@donuts.com";
     String testMessage = "I have one dozen of donuts just for you!";
     
@@ -25,7 +25,7 @@ public static void main(String[] args){
     
     System.out.println("Test Sender: " + testSender);
     System.out.println("Test Message: " + testMessage);
-    System.out.println("Returned Category: " + result);
+    System.out.println("Returned Category: " + result); */
 }
 
 
