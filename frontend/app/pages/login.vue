@@ -8,6 +8,7 @@ const router = useRouter()
 const username = ref('')
 const password = ref('')
 const statusMessage = ref('')
+const isLoading = ref(false)
 
 const apiBaseURL = 'http://localhost:3001'
 const API_ENDPOINT = ''
@@ -17,14 +18,26 @@ const savedCredentials = computed(() => getCredentials())
 
 const saveCredentials = async () => {
   if (!username.value || !password.value) {
-    alert('Please fill in both username and password')
+    statusMessage.value = 'Please fill in both username and password'
     return
   }
 
-  await saveCreds(username.value, password.value)
-  
-  // Navigate to homepage after saving credentials
-  await router.push('/')
+  isLoading.value = true
+  statusMessage.value = ''
+
+  try {
+    await saveCreds(username.value, password.value)
+    statusMessage.value = 'Account created successfully!'
+    
+    // Navigate to homepage after saving credentials
+    setTimeout(async () => {
+      await router.push('/')
+    }, 1000)
+  } catch (error: any) {
+    statusMessage.value = error?.message || 'Failed to create account. Please try again.'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 const clearCredentials = () => {
@@ -67,7 +80,12 @@ const clearCredentials = () => {
           />
         </div>
 
-        <button type="submit" class="submit-button">Save Credentials</button>
+        <div v-if="statusMessage" :class="['status-message', statusMessage.includes('successfully') ? 'success' : 'error']">
+          {{ statusMessage }}
+        </div>
+        <button type="submit" class="submit-button" :disabled="isLoading">
+          {{ isLoading ? 'Creating Account...' : 'Save Credentials' }}
+        </button>
       </form>
 
       <div v-if="hasCredentials" class="saved-info">
@@ -169,6 +187,32 @@ const clearCredentials = () => {
 
 .submit-button:active {
   transform: translateY(0);
+}
+
+.submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.status-message {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+.status-message.success {
+  background: #f0fff4;
+  color: #22543d;
+  border: 2px solid #9ae6b4;
+}
+
+.status-message.error {
+  background: #fff5f5;
+  color: #742a2a;
+  border: 2px solid #fc8181;
 }
 
 .saved-info {

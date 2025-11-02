@@ -13,34 +13,30 @@ export const useCredentials = () => {
   )
 
   const saveCredentials = async (username: string, password: string) => {
+    const config = useRuntimeConfig()
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
+    
+    // Send account creation request to backend
     try {
-      const config = useRuntimeConfig()
-      const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001'
-      
-      // Send account creation request to backend
-      try {
-        await $fetch(`${baseURL}/api/users`, {
-          method: 'POST',
-          body: {
-            username,
-            password
-          },
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        console.log('Account created successfully in backend')
-      } catch (err: any) {
-        // Log error but don't block local storage
-        // In case backend is down or endpoint doesn't exist yet
-        console.warn('Failed to create account in backend:', err?.message || err)
-        // Continue with local storage even if backend fails
-      }
+      const response = await $fetch(`${baseURL}/api/users`, {
+        method: 'POST',
+        body: {
+          username,
+          password
+        },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      console.log('Account created successfully in backend', response)
     } catch (err: any) {
-      console.error('Error during account creation:', err)
+      // Extract error message from response
+      const errorMessage = err?.data?.message || err?.message || 'Failed to create account'
+      console.error('Failed to create account in backend:', errorMessage)
+      throw new Error(errorMessage)
     }
     
-    // Save credentials locally regardless of backend result
+    // Save credentials locally only if backend call succeeds
     credentials.value = { username, password }
     if (typeof window !== 'undefined') {
       localStorage.setItem('accountCredentials', JSON.stringify(credentials.value))

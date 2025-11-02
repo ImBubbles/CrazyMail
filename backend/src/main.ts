@@ -37,6 +37,7 @@ async function bootstrap() {
   console.log('  GET  /');
   console.log('  POST /api/transcript');
   console.log('  POST /api/rewrite');
+  console.log('  POST /api/users');
 
   // Note: Not setting global prefix since controllers already use 'api' prefix
 
