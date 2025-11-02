@@ -7,6 +7,7 @@ export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
   create(createUserDto: CreateUserDto) {
+    this.logger.log('[POST] /users Request received for username: ${createUserDto.username}');
     this.logger.log('[POST] /users Request received for email: ${createUserDto.email}');
     this.logger.debug('Received Full Payload: ', createUserDto);
 
