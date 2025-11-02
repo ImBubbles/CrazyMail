@@ -12,6 +12,18 @@ const isPlayingAudio = ref(false)
 const isGeneratingAudio = ref(false)
 let currentAudio: HTMLAudioElement | null = null
 let currentAudioUrl: string | null = null
+
+// Summary state
+const emailSummary = ref<string | null>(null)
+const isGeneratingSummary = ref(false)
+const summaryError = ref<string | null>(null)
+
+// Translation state
+const emailTranslation = ref<string | null>(null)
+const isTranslating = ref(false)
+const translationError = ref<string | null>(null)
+const selectedLanguage = ref<string>('Spanish')
+
 const { 
   filteredEmails, 
   allTags, 
@@ -167,7 +179,88 @@ const handleAudioButtonClick = () => {
   }
 };
 
-// Clean up audio when email modal is closed
+// Available languages for translation
+const languages = [
+  { code: 'Spanish', name: 'Spanish (Español)' },
+  { code: 'French', name: 'French (Français)' },
+  { code: 'German', name: 'German (Deutsch)' },
+  { code: 'Italian', name: 'Italian (Italiano)' },
+  { code: 'Portuguese', name: 'Portuguese (Português)' },
+  { code: 'Russian', name: 'Russian (Русский)' },
+  { code: 'Japanese', name: 'Japanese (日本語)' },
+  { code: 'Chinese', name: 'Chinese (中文)' },
+  { code: 'Korean', name: 'Korean (한국어)' },
+  { code: 'Arabic', name: 'Arabic (العربية)' },
+  { code: 'Hindi', name: 'Hindi (हिन्दी)' },
+  { code: 'Dutch', name: 'Dutch (Nederlands)' },
+  { code: 'Polish', name: 'Polish (Polski)' },
+  { code: 'Turkish', name: 'Turkish (Türkçe)' },
+  { code: 'Swedish', name: 'Swedish (Svenska)' },
+  { code: 'Norwegian', name: 'Norwegian (Norsk)' },
+  { code: 'Danish', name: 'Danish (Dansk)' },
+  { code: 'Finnish', name: 'Finnish (Suomi)' },
+  { code: 'Greek', name: 'Greek (Ελληνικά)' },
+  { code: 'Czech', name: 'Czech (Čeština)' },
+]
+
+// Generate email summary
+const generateSummary = async () => {
+  if (!selectedEmail.value) return;
+
+  isGeneratingSummary.value = true;
+  summaryError.value = null;
+  emailSummary.value = null;
+
+  try {
+    const config = useRuntimeConfig();
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001';
+
+    const response = await $fetch<{ summary: string }>(`${baseURL}/api/summarize`, {
+      method: 'POST',
+      body: {
+        text: selectedEmail.value.body,
+      },
+    });
+
+    emailSummary.value = response.summary;
+  } catch (err: any) {
+    console.error('Error generating summary:', err);
+    summaryError.value = err.message || 'Failed to generate summary. Please try again.';
+  } finally {
+    isGeneratingSummary.value = false;
+  }
+};
+
+// Translate email
+const translateEmail = async () => {
+  if (!selectedEmail.value || !selectedLanguage.value) return;
+
+  isTranslating.value = true;
+  translationError.value = null;
+  emailTranslation.value = null;
+
+  try {
+    const config = useRuntimeConfig();
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001';
+
+    const response = await $fetch<{ translatedText: string }>(`${baseURL}/api/translate`, {
+      method: 'POST',
+      body: {
+        text: selectedEmail.value.body,
+        targetLanguage: selectedLanguage.value,
+      },
+    });
+
+    emailTranslation.value = response.translatedText;
+  } catch (err: any) {
+    console.error('Error translating email:', err);
+    translationError.value = err.message || 'Failed to translate email. Please try again.';
+  } finally {
+    isTranslating.value = false;
+  }
+};
+
+// Clean up audio, summary, and translation when email modal is closed
 watch(selectedEmail, (newEmail) => {
   if (!newEmail) {
     if (currentAudio) {
@@ -175,6 +268,11 @@ watch(selectedEmail, (newEmail) => {
       isPlayingAudio.value = false;
     }
     cleanupAudio();
+    // Reset summary and translation when email is closed
+    emailSummary.value = null;
+    summaryError.value = null;
+    emailTranslation.value = null;
+    translationError.value = null;
   }
 });
 // Redirect to login if no credentials
@@ -460,6 +558,80 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
           </div>
           <div class="email-modal-body">
             {{ selectedEmail.body }}
+          </div>
+
+          <!-- Translation and Summary Controls -->
+          <div class="email-actions-section">
+            <div class="translation-controls">
+              <select 
+                v-model="selectedLanguage"
+                class="language-selector"
+                :disabled="isTranslating"
+                aria-label="Select target language"
+              >
+                <option v-for="lang in languages" :key="lang.code" :value="lang.code">
+                  {{ lang.name }}
+                </option>
+              </select>
+              <button 
+                @click="translateEmail()"
+                :disabled="isTranslating || !selectedLanguage"
+                class="translate-button"
+                :class="{ loading: isTranslating }"
+                aria-label="Translate email"
+              >
+                <span v-if="isTranslating" class="translate-icon">⏳</span>
+                <span v-else class="translate-icon">🌐</span>
+                <span class="translate-text">{{ isTranslating ? 'Translating...' : 'Translate' }}</span>
+              </button>
+            </div>
+            <button 
+              @click="generateSummary()"
+              :disabled="isGeneratingSummary"
+              class="summary-button-inline"
+              :class="{ loading: isGeneratingSummary }"
+              aria-label="Generate email summary"
+            >
+              <span v-if="isGeneratingSummary" class="summary-icon">⏳</span>
+              <span v-else class="summary-icon">📋</span>
+              <span class="summary-text">{{ isGeneratingSummary ? 'Generating...' : 'Summarize' }}</span>
+            </button>
+          </div>
+
+          <!-- Email Translation Section -->
+          <div v-if="emailTranslation || isTranslating || translationError" class="email-translation-section">
+            <div class="translation-header">
+              <h3 class="translation-title">Translation ({{ selectedLanguage }})</h3>
+            </div>
+            <div v-if="isTranslating" class="translation-loading">
+              <div class="spinner-small"></div>
+              <span>Translating to {{ selectedLanguage }}...</span>
+            </div>
+            <div v-else-if="translationError" class="translation-error">
+              <p class="error-message">{{ translationError }}</p>
+              <button @click="translateEmail()" class="retry-button-small">Retry</button>
+            </div>
+            <div v-else-if="emailTranslation" class="translation-content">
+              {{ emailTranslation }}
+            </div>
+          </div>
+
+          <!-- Email Summary Section -->
+          <div v-if="emailSummary || isGeneratingSummary || summaryError" class="email-summary-section">
+            <div class="summary-header">
+              <h3 class="summary-title">Summary</h3>
+            </div>
+            <div v-if="isGeneratingSummary" class="summary-loading">
+              <div class="spinner-small"></div>
+              <span>Generating summary...</span>
+            </div>
+            <div v-else-if="summaryError" class="summary-error">
+              <p class="error-message">{{ summaryError }}</p>
+              <button @click="generateSummary()" class="retry-button-small">Retry</button>
+            </div>
+            <div v-else-if="emailSummary" class="summary-content">
+              {{ emailSummary }}
+            </div>
           </div>
 
         </div>
@@ -836,6 +1008,164 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.email-actions-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.translation-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 300px;
+}
+
+.language-selector {
+  padding: 0.625rem 0.875rem;
+  background: white;
+  border: 2px solid #e2e8f0;
+  color: #2d3748;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 150px;
+  flex: 1;
+}
+
+.language-selector:hover:not(:disabled) {
+  border-color: #667eea;
+  background: #f7fafc;
+}
+
+.language-selector:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #f7fafc;
+}
+
+.language-selector option {
+  background: white;
+  color: #2d3748;
+}
+
+.translate-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.translate-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.translate-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.translate-button.loading {
+  opacity: 0.8;
+}
+
+.translate-icon {
+  font-size: 1rem;
+}
+
+.translate-text {
+  font-size: 0.875rem;
+}
+
+.summary-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.summary-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.summary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.summary-button.loading {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.summary-button-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  color: white;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.summary-button-inline:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.summary-button-inline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.summary-button-inline.loading {
+  opacity: 0.8;
+}
+
+.summary-icon {
+  font-size: 1rem;
+}
+
+.summary-text {
+  font-size: 0.875rem;
 }
 
 .audio-button {
@@ -952,6 +1282,123 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
   white-space: pre-wrap;
   word-wrap: break-word;
   font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+.email-summary-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.summary-header {
+  margin-bottom: 1rem;
+}
+
+.summary-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.summary-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.summary-error {
+  color: #e53e3e;
+}
+
+.summary-error .error-message {
+  color: #e53e3e;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.retry-button-small {
+  padding: 0.375rem 0.75rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retry-button-small:hover {
+  background: #5568d3;
+}
+
+.summary-content {
+  color: #2d3748;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  background: #f7fafc;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
+}
+
+.email-translation-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.translation-header {
+  margin-bottom: 1rem;
+}
+
+.translation-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.translation-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.translation-error {
+  color: #e53e3e;
+}
+
+.translation-error .error-message {
+  color: #e53e3e;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.translation-content {
+  color: #2d3748;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  background: #fff5e6;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  border-left: 3px solid #f59e0b;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 @media (max-width: 768px) {
@@ -981,6 +1428,38 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
 
   .email-modal-content {
     padding: 1.5rem;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .email-actions-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .translation-controls {
+    width: 100%;
+    min-width: unset;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .language-selector {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .translate-button,
+  .summary-button-inline {
+    width: 100%;
+  }
+
+  .audio-button {
+    flex: 1;
+    min-width: 120px;
   }
 }
 </style>
