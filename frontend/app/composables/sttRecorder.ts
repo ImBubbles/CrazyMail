@@ -71,7 +71,7 @@ export default function useRecorder() {
 
         loading.value = true;
         try {
-          const response = await fetch("/api/voice", {
+          const response = await fetch("/api/transcript", {
             method: "POST",
             body: audioBlob,
           });
