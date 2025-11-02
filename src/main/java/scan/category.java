@@ -5,7 +5,11 @@ import java.util.stream.Collectors;
 
 public enum category
 {
-        SPAM, UNFILTERED, PHISHING, 
+        //Placeholder category
+        UNFILTERED,
+        //Added Categories
+        SPAM, PHISHING, SCHOOL, WORK, SCHOLARSHIPS, FOOD, FINANCES, PROMOTIONS, PERSONAL,
+        //Preexisting categories
         GUIDE, NEWSLETTER, SUPPORT, SYSTEM, WELCOME;
 
         public static String convertEnumToString()

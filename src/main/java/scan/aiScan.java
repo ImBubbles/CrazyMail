@@ -14,11 +14,9 @@ public class aiScan
         Respond with only the category name, exactly as it appears in the list.
         """;
 
-public static void main(String[] args)
-{
-    category result = main("spam@spam.com", "abcdefghijklmnopqrstuvwxyz", category.UNFILTERED);
-    System.out.println("Returned Category: " + result);
-}
+public static void main(String[] args){}
+
+
 
     public static category main(String sender, String message, category narrowed)
     {
@@ -32,7 +30,7 @@ public static void main(String[] args)
 
         Client client = new Client();
 
-        String categoriesString = category.convertEnumToString(category.UNFILTERED, category.SPAM, category.PHISHING);
+        String categoriesString = category.convertEnumToString(category.UNFILTERED);
 
         String prompt = String.format(
         CLASSIFICATION_PROMPT_TEMPLATE,
@@ -62,7 +60,7 @@ public static void main(String[] args)
         } catch (Exception e) {
             // Catch all other errors (API, network, etc.)
             System.err.println("FATAL ERROR: Gemini API call failed or client initialization error.");
-            e.printStackTrace(); 
+            e.printStackTrace();
             return category.UNFILTERED;
         }
     }
