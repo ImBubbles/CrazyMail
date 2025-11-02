@@ -12,6 +12,12 @@ const isPlayingAudio = ref(false)
 const isGeneratingAudio = ref(false)
 let currentAudio: HTMLAudioElement | null = null
 let currentAudioUrl: string | null = null
+
+// Summary state
+const emailSummary = ref<string | null>(null)
+const isGeneratingSummary = ref(false)
+const summaryError = ref<string | null>(null)
+
 const { 
   filteredEmails, 
   allTags, 
@@ -167,7 +173,35 @@ const handleAudioButtonClick = () => {
   }
 };
 
-// Clean up audio when email modal is closed
+// Generate email summary
+const generateSummary = async () => {
+  if (!selectedEmail.value) return;
+
+  isGeneratingSummary.value = true;
+  summaryError.value = null;
+  emailSummary.value = null;
+
+  try {
+    const config = useRuntimeConfig();
+    const baseURL = (config.public as any)?.apiBase || 'http://localhost:3001';
+
+    const response = await $fetch<{ summary: string }>(`${baseURL}/api/summarize`, {
+      method: 'POST',
+      body: {
+        text: selectedEmail.value.body,
+      },
+    });
+
+    emailSummary.value = response.summary;
+  } catch (err: any) {
+    console.error('Error generating summary:', err);
+    summaryError.value = err.message || 'Failed to generate summary. Please try again.';
+  } finally {
+    isGeneratingSummary.value = false;
+  }
+};
+
+// Clean up audio and summary when email modal is closed
 watch(selectedEmail, (newEmail) => {
   if (!newEmail) {
     if (currentAudio) {
@@ -175,6 +209,9 @@ watch(selectedEmail, (newEmail) => {
       isPlayingAudio.value = false;
     }
     cleanupAudio();
+    // Reset summary when email is closed
+    emailSummary.value = null;
+    summaryError.value = null;
   }
 });
 // Redirect to login if no credentials
@@ -402,6 +439,17 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
           <h2 class="email-modal-subject">{{ selectedEmail.subject }}</h2>
           <div class="header-actions">
             <button 
+              @click="generateSummary()"
+              :disabled="isGeneratingSummary"
+              class="summary-button"
+              :class="{ loading: isGeneratingSummary }"
+              aria-label="Generate email summary"
+            >
+              <span v-if="isGeneratingSummary" class="summary-icon">⏳</span>
+              <span v-else class="summary-icon">📋</span>
+              <span class="summary-text">{{ isGeneratingSummary ? 'Generating...' : 'Summarize' }}</span>
+            </button>
+            <button 
               @click="handleAudioButtonClick()"
               :disabled="isGeneratingAudio || !ELEVENLABS_API_KEY"
               class="audio-button"
@@ -460,6 +508,24 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
           </div>
           <div class="email-modal-body">
             {{ selectedEmail.body }}
+          </div>
+
+          <!-- Email Summary Section -->
+          <div v-if="emailSummary || isGeneratingSummary || summaryError" class="email-summary-section">
+            <div class="summary-header">
+              <h3 class="summary-title">Summary</h3>
+            </div>
+            <div v-if="isGeneratingSummary" class="summary-loading">
+              <div class="spinner-small"></div>
+              <span>Generating summary...</span>
+            </div>
+            <div v-else-if="summaryError" class="summary-error">
+              <p class="error-message">{{ summaryError }}</p>
+              <button @click="generateSummary()" class="retry-button-small">Retry</button>
+            </div>
+            <div v-else-if="emailSummary" class="summary-content">
+              {{ emailSummary }}
+            </div>
           </div>
 
         </div>
@@ -838,6 +904,44 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
   gap: 0.75rem;
 }
 
+.summary-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.summary-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.summary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.summary-button.loading {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.summary-icon {
+  font-size: 1rem;
+}
+
+.summary-text {
+  font-size: 0.875rem;
+}
+
 .audio-button {
   display: flex;
   align-items: center;
@@ -952,6 +1056,76 @@ const hourLabels = Array.from({ length: 24 }, (_, i) => {
   white-space: pre-wrap;
   word-wrap: break-word;
   font-size: 1rem;
+  margin-bottom: 2rem;
+}
+
+.email-summary-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.summary-header {
+  margin-bottom: 1rem;
+}
+
+.summary-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.summary-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.spinner-small {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.summary-error {
+  color: #e53e3e;
+}
+
+.summary-error .error-message {
+  color: #e53e3e;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.retry-button-small {
+  padding: 0.375rem 0.75rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.retry-button-small:hover {
+  background: #5568d3;
+}
+
+.summary-content {
+  color: #2d3748;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  background: #f7fafc;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
 }
 
 @media (max-width: 768px) {

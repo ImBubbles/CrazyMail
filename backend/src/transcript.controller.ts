@@ -241,5 +241,88 @@ export class TranscriptController {
       );
     }
   }
+
+  @Post('summarize')
+  async summarizeEmail(
+    @Body() body: { text: string },
+  ): Promise<{ summary: string }> {
+    const { text } = body;
+
+    if (!text || !text.trim()) {
+      throw new BadRequestException('Email text is required');
+    }
+
+    const cloudflareApiToken = process.env.CLOUDFLARE_API_TOKEN;
+    if (!cloudflareApiToken) {
+      throw new InternalServerErrorException(
+        'Cloudflare API token not configured. Please set CLOUDFLARE_API_TOKEN environment variable.',
+      );
+    }
+
+    const cloudflareAccountId =
+      process.env.CLOUDFLARE_ACCOUNT_ID ||
+      '023e105f4ecef8ad9ca31a8372d0c353';
+
+    // Use Cloudflare's LLM model for email summarization
+    const url = `https://api.cloudflare.com/client/v4/accounts/${cloudflareAccountId}/ai/run/@cf/meta/llama-3.1-8b-instruct`;
+
+    const prompt = `Please provide a concise summary of the following email. Focus on the main points, key information, and any action items. Keep the summary brief and to the point (2-4 sentences maximum).\n\nEmail:\n${text}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cloudflareApiToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Cloudflare API error:', response.status, response.statusText);
+        console.error('Cloudflare error response:', errorText);
+        throw new InternalServerErrorException(
+          `Cloudflare API error: ${response.status} ${response.statusText}. Details: ${errorText}`,
+        );
+      }
+
+      const result: any = await response.json();
+
+      // Cloudflare LLM response format - typically returns { response: string } or { result: { response: string } }
+      let summary: string;
+      if (result.result?.response) {
+        summary = result.result.response;
+      } else if (result.response) {
+        summary = result.response;
+      } else if (result.result && typeof result.result === 'string') {
+        summary = result.result;
+      } else if (typeof result === 'string') {
+        summary = result;
+      } else if (result.text) {
+        summary = result.text;
+      } else {
+        console.error('Unexpected response format:', JSON.stringify(result, null, 2));
+        throw new InternalServerErrorException(
+          `Unexpected response format from Cloudflare API. Response: ${JSON.stringify(result)}`,
+        );
+      }
+
+      return { summary: summary.trim() };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof InternalServerErrorException
+      ) {
+        throw error;
+      }
+      console.error('Error calling Cloudflare API:', error);
+      throw new InternalServerErrorException(
+        'Failed to summarize email: ' + (error as Error).message,
+      );
+    }
+  }
 }
 
